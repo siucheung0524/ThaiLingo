@@ -1,31 +1,44 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-  // 1. 基本安全檢查
+  // 1. 允許簡單的 CORS (如果是在本地測試會用到，但在 Vercel 同網域通常不需要，加了保險)
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // 2. 獲取 API Key (這是環境變數，只有伺服器端看得到)
-  const apiKey = process.env.GEMINI_API_KEY;
-  
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Server Config Error: Missing API Key' });
-  }
-
   try {
-    const { image, mode } = req.body; // mode 可能是 'menu' (菜單) 或 'sign' (路牌)
+    // 2. 檢查 API Key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("Error: GEMINI_API_KEY is missing in environment variables.");
+      return res.status(500).json({ 
+        error: 'Configuration Error', 
+        details: 'API Key not set on server. Please add GEMINI_API_KEY in Vercel Settings.' 
+      });
+    }
 
+    const { image, mode } = req.body;
     if (!image) {
       return res.status(400).json({ error: 'No image data provided' });
     }
 
-    // 3. 初始化 Gemini 模型
-    // 修改點：優先從環境變數讀取模型名稱，如果沒設定，才使用預設值
-    // 這樣您可以在 Vercel 後台隨時切換模型 (例如: gemini-1.5-flash, gemini-1.5-pro)
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-exp";
-    
+    // 3. 初始化模型 (改用最穩定的 1.5 Flash)
     const genAI = new GoogleGenerativeAI(apiKey);
+    // 優先使用環境變數，否則使用 1.5 Flash
+    const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash"; 
     const model = genAI.getGenerativeModel({ model: modelName });
 
     // 4. 設定 Prompt
@@ -35,40 +48,29 @@ export default async function handler(req, res) {
       
       任務要求：
       1. 識別圖中所有的泰文內容。
-      2. 請按照圖片上原本的視覺順序（從上到下）排列。
-      3. 翻譯成繁體中文 (Traditional Chinese)。
-      4. 如果是菜單，請提取價格。
-      5. 如果有辣椒圖示或紅色標記，請標記為辣 (isSpicy: true)。
-      6. 輸出格式必須是純 JSON，不要包含 markdown 標籤。
+      2. 翻譯成繁體中文 (Traditional Chinese)。
+      3. 如果是菜單，請提取價格。
+      4. 如果有辣椒圖示或紅色標記，請標記為辣 (isSpicy: true)。
+      5. 輸出純 JSON 格式。
       
-      JSON 格式範例：
+      JSON 範例：
       {
         "items": [
           {
             "id": 1,
-            "thai": "泰文原文",
-            "zh": "繁體中文翻譯",
-            "price": "100", // 如果沒有價格則留空或填寫 "N/A"
-            "desc": "簡短的菜色描述 (例如：酸辣湯)",
-            "isSpicy": true, // 或 false
-            "tags": ["推薦", "熱門"] // 根據圖片上的 "Best Seller" 或拇指圖示判斷，若無則為空陣列
+            "thai": "泰文",
+            "zh": "中文",
+            "price": "100",
+            "desc": "描述",
+            "isSpicy": true,
+            "tags": ["推薦"]
           }
         ]
       }
     `;
 
     if (mode === 'sign') {
-        prompt = `
-        你是一個專業的泰語翻譯助手。
-        這是一張路牌或標示。
-        請識別上面的泰文，並翻譯成繁體中文。
-        輸出格式為 JSON:
-        {
-            "items": [
-                { "id": 1, "thai": "原文", "zh": "翻譯", "desc": "這是路名/警告標語/商店名...", "price": "", "isSpicy": false, "tags": [] }
-            ]
-        }
-        `;
+        prompt = `識別路牌或標示上的泰文，翻譯成繁體中文。輸出 JSON: {"items": [{"id": 1, "thai": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "tags": []}]}`;
     }
 
     // 5. 呼叫 Gemini
@@ -82,18 +84,25 @@ export default async function handler(req, res) {
       }
     ]);
 
-    const responseText = result.response.text();
+    const response = await result.response;
+    const text = response.text();
+    
+    // 清理 JSON
+    let cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    // 嘗試解析，如果失敗則回傳原始文本以便除錯
+    let parsedData;
+    try {
+        parsedData = JSON.parse(cleanJson);
+    } catch (e) {
+        console.error("JSON Parse Error:", text);
+        return res.status(500).json({ error: 'AI Response Error', details: 'Failed to parse AI response as JSON', raw: text });
+    }
 
-    // 6. 清理與解析 JSON (Gemini 有時會包在 ```json ... ``` 裡)
-    let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsedData = JSON.parse(cleanJson);
-
-    // 7. 回傳結果
     res.status(200).json(parsedData);
 
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    // 增加一點錯誤訊息的細節，方便除錯 (例如配額不足 429 Error)
-    res.status(500).json({ error: 'AI Processing Failed', details: error.message });
+    console.error("Server Error:", error);
+    res.status(500).json({ error: 'Processing Failed', details: error.message });
   }
 }
