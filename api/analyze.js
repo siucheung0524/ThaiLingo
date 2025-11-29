@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         }
     });
 
-    // 4. 設定 Prompt
+    // 4. 設定 Prompt (加入羅馬拼音要求)
     let prompt = `
       你是一個專業的泰語翻譯助手，專門幫助旅客翻譯菜單或路牌。
       請分析這張圖片。
@@ -57,9 +57,10 @@ export default async function handler(req, res) {
       任務要求：
       1. 識別圖中所有的泰文內容。
       2. 翻譯成繁體中文 (Traditional Chinese)。
-      3. 如果是菜單，請提取價格。
-      4. 如果有辣椒圖示或紅色標記，請標記為辣 (isSpicy: true)。
-      5. 嚴格輸出純 JSON 格式，不要包含任何 Markdown 標記。
+      3. 請提供泰文的羅馬拼音 (RTGS 系統)，幫助使用者發音。
+      4. 如果是菜單，請提取價格。
+      5. 如果有辣椒圖示或紅色標記，請標記為辣 (isSpicy: true)。
+      6. 嚴格輸出純 JSON 格式。
       
       JSON 結構如下：
       {
@@ -67,6 +68,7 @@ export default async function handler(req, res) {
           {
             "id": 1,
             "thai": "泰文原文",
+            "roman": "羅馬拼音 (例如: Tom Yum Kung)",
             "zh": "繁體中文翻譯",
             "price": "100",
             "desc": "簡短的菜色描述",
@@ -78,10 +80,10 @@ export default async function handler(req, res) {
     `;
 
     if (mode === 'sign') {
-        prompt = `識別路牌或標示上的泰文，翻譯成繁體中文。輸出純 JSON: {"items": [{"id": 1, "thai": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "tags": []}]}`;
+        prompt = `識別路牌或標示上的泰文，翻譯成繁體中文並提供羅馬拼音。輸出純 JSON: {"items": [{"id": 1, "thai": "...", "roman": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "tags": []}]}`;
     }
 
-    // 5. 呼叫 Gemini (使用物件參數形式以支援 generationConfig)
+    // 5. 呼叫 Gemini
     const result = await model.generateContent({
       contents: [
         {
@@ -102,15 +104,11 @@ export default async function handler(req, res) {
     const response = await result.response;
     let text = response.text();
     
-    console.log("Raw AI Response:", text); // 用於 Vercel Logs 除錯
-
     // 6. 增強型清理 JSON
-    // 有時候即便設定了 JSON 模式，模型還是可能回傳 ```json ... ```，這裡做雙重清理
     if (text.includes("```")) {
         text = text.replace(/```json/g, '').replace(/```/g, '');
     }
     
-    // 強制提取最外層大括號內的內容 (以防開頭有雜訊)
     const jsonStartIndex = text.indexOf('{');
     const jsonEndIndex = text.lastIndexOf('}');
     
@@ -118,7 +116,6 @@ export default async function handler(req, res) {
         text = text.substring(jsonStartIndex, jsonEndIndex + 1);
     }
     
-    // 嘗試解析
     let parsedData;
     try {
         parsedData = JSON.parse(text);
@@ -127,7 +124,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ 
             error: 'AI Response Error', 
             details: 'Failed to parse AI response as JSON', 
-            raw: text.substring(0, 200) + "..." // 回傳部分原始文字以便除錯
+            raw: text.substring(0, 200) + "..." 
         });
     }
 
@@ -135,7 +132,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Server Error:", error);
-    // 回傳詳細錯誤
     res.status(500).json({ error: 'Processing Failed', details: error.message });
   }
 }
