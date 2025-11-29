@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ThaiLingo 泰譯通</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'tech-black': '#050a06',
+                        'tech-dark': '#120b08',
+                        'thai-tea': '#FF9E40', 
+                        'thai-tea-dim': '#C46210',
+                    },
+                    boxShadow: {
+                        'neon': '0 0 15px rgba(255, 158, 64, 0.4), 0 0 5px rgba(255, 158, 64, 0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Sans+Thai:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            background-color: #050a06;
+            color: white;
+            overflow: hidden;
+        }
+
+        .thai-font {
+            font-family: 'Noto Sans Thai', sans-serif;
+        }
+
+        /* 科技感網格背景 */
+        .tech-grid {
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(255, 158, 64, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 158, 64, 0.03) 1px, transparent 1px);
+        }
+
+        /* 掃描線動畫 */
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: #FF9E40;
+            box-shadow: 0 0 10px #FF9E40;
+            top: 0;
+            left: 0;
+            animation: scan 2s infinite linear;
+            display: none;
+        }
+
+        .scanning .scan-line {
+            display: block;
+        }
+
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 卡片進場動畫 */
+        .menu-item {
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 玻璃擬態 */
+        .glass-panel {
+            background: rgba(18, 11, 8, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glass-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        /* 自定義 Range Slider 樣式 (泰奶風格) */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #FF9E40;
+            border: 2px solid #050a06;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(255, 158, 64, 0.5);
+            position: relative;
+            z-index: 50;
+        }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+        
+        input[type=range]:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const containerRef = useRef(null);
+            useEffect(() => {
+                if (!window.lucide || !containerRef.current) return;
+                const pascalName = name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
+                const container = containerRef.current;
+                container.innerHTML = ''; 
+                const iconElement = document.createElement('i');
+                iconElement.setAttribute('data-lucide', name);
+                container.appendChild(iconElement);
+                window.lucide.createIcons({
+                    root: container,
+                    icons: { [pascalName]: window.lucide.icons[pascalName] },
+                    attrs: { class: className, width: size, height: size }
+                });
+            }, [name, size, className]);
+            return <span ref={containerRef} className="inline-flex items-center justify-center"></span>;
+        };
+
+        const App = () => {
+            const videoRef = useRef(null);
+            const canvasRef = useRef(null);
+            const [isScanning, setIsScanning] = useState(false);
+            const [menuItems, setMenuItems] = useState([]); 
+            const [cameraError, setCameraError] = useState(null);
+            const [mode, setMode] = useState('menu'); 
+            const [processingStage, setProcessingStage] = useState(''); 
+            const [isCameraReady, setIsCameraReady] = useState(false);
+            
+            // Zoom 相關狀態 - 初始化為 1
+            const [zoom, setZoom] = useState(1);
+            const [zoomRange, setZoomRange] = useState({ min: 1, max: 3, step: 0.1 });
+            const [isHardwareZoom, setIsHardwareZoom] = useState(false);
+
+            useEffect(() => {
+                startCamera();
+                return () => stopCamera();
+            }, []);
+
+            const startCamera = async () => {
+                try {
+                    const constraints = {
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            zoom: true 
+                        }
+                    };
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        
+                        const track = stream.getVideoTracks()[0];
+                        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                        
+                        if (capabilities.zoom) {
+                            setIsHardwareZoom(true);
+                            setZoomRange({
+                                min: capabilities.zoom.min,
+                                max: capabilities.zoom.max,
+                                step: capabilities.zoom.step
+                            });
+                            const settings = track.getSettings();
+                            if (settings.zoom) {
+                                setZoom(settings.zoom);
+                            }
+                        } else {
+                            setIsHardwareZoom(false);
+                            setZoomRange({ min: 1, max: 3, step: 0.1 });
+                        }
+
+                        videoRef.current.onloadedmetadata = () => {
+                            videoRef.current.play();
+                            setIsCameraReady(true);
+                            setCameraError(null);
+                        };
+                    }
+                } catch (err) {
+                    console.error("Camera Error:", err);
+                    setCameraError("請允許相機權限以使用翻譯功能");
+                }
+            };
+
+            const stopCamera = () => {
+                if (videoRef.current && videoRef.current.srcObject) {
+                    const tracks = videoRef.current.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                }
+            };
+
+            const handleZoomChange = (e) => {
+                const newZoom = parseFloat(e.target.value);
+                setZoom(newZoom);
+                
+                if (isHardwareZoom && videoRef.current && videoRef.current.srcObject) {
+                    const track = videoRef.current.srcObject.getVideoTracks()[0];
+                    if (track) {
+                        try {
+                            track.applyConstraints({ advanced: [{ zoom: newZoom }] });
+                        } catch (err) {
+                            console.error("Zoom failed:", err);
+                        }
+                    }
+                }
+            };
+
+            const handleCaptureAndScan = async () => {
+                const video = videoRef.current;
+                if (!video || !isCameraReady || isScanning) return;
+                
+                if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+                setIsScanning(true);
+                setMenuItems([]);
+                setProcessingStage('正在優化影像...');
+                
+                const canvas = canvasRef.current;
+                const MAX_WIDTH = 1024;
+                let width = video.videoWidth;
+                let height = video.videoHeight;
+                
+                if (width > MAX_WIDTH) {
+                    height = height * (MAX_WIDTH / width);
+                    width = MAX_WIDTH;
+                }
+                
+                width = Math.floor(width);
+                height = Math.floor(height);
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                
+                if (!isHardwareZoom && zoom > 1) {
+                    const sWidth = video.videoWidth / zoom;
+                    const sHeight = video.videoHeight / zoom;
+                    const sx = (video.videoWidth - sWidth) / 2;
+                    const sy = (video.videoHeight - sHeight) / 2;
+                    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, width, height);
+                } else {
+                    ctx.drawImage(video, 0, 0, width, height);
+                }
+                
+                // 轉為 Base64 並壓縮
+                const imageData = canvas.toDataURL('image/jpeg', 0.6);
+                
+                await callBackendApi(imageData);
+                
+                setIsScanning(false);
+                setProcessingStage('');
+            };
+
+            // 改為呼叫真實的後端 API
+            const callBackendApi = async (base64Image) => {
+                setProcessingStage('上傳影像中...');
+                
+                try {
+                    // 只傳送 base64 的內容部分 (移除 data:image/jpeg;base64, 前綴)
+                    const imageContent = base64Image.split(',')[1];
+                    
+                    const response = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            image: imageContent,
+                            mode: mode // 'menu' or 'sign'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+
+                    setProcessingStage('AI 視覺分析中...');
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    setMenuItems(data.items || []);
+                } catch (error) {
+                    console.error("Analysis Failed:", error);
+                    // 如果是在本地預覽且沒有 API Key，可以顯示一個模擬錯誤或 fallback
+                    alert("翻譯失敗：請確認已連接網路，或檢查 Vercel 環境變數是否設定正確。");
+                }
+            };
+
+            return (
+                <div className="flex flex-col h-screen w-full bg-tech-black text-white relative tech-grid font-sans">
+                    
+                    {/* 背景光暈裝飾 */}
+                    <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[100px] pointer-events-none"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-thai-tea/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+                    {/* 上半部：相機取景區 */}
+                    <div className="relative w-full h-[55%] overflow-hidden rounded-b-[40px] shadow-2xl z-10 border-b border-white/10 group bg-tech-dark">
+                        
+                        {cameraError ? (
+                            <div className="flex flex-col items-center justify-center h-full text-white/50 p-8 text-center bg-tech-dark">
+                                <Icon name="camera-off" size={48} className="mb-4 opacity-50" />
+                                {cameraError}
+                            </div>
+                        ) : (
+                            <video 
+                                ref={videoRef}
+                                autoPlay 
+                                playsInline 
+                                muted
+                                className={`w-full h-full object-cover transition-transform duration-100 ${isScanning ? 'filter grayscale contrast-125' : ''}`}
+                                style={{ 
+                                    transform: !isHardwareZoom ? `scale(${zoom})` : 'scale(1)', 
+                                    transformOrigin: 'center center' 
+                                }}
+                            />
+                        )}
+
+                        {/* 掃描線 */}
+                        <div className={`scan-line z-20 ${isScanning ? 'block' : 'hidden'}`}></div>
+
+                        {/* Tech UI Overlay */}
+                        <div className="absolute inset-0 pointer-events-none p-8 flex flex-col justify-between z-20 opacity-60">
+                            <div className="flex justify-between">
+                                <div className="w-8 h-8 border-t-2 border-l-2 border-thai-tea rounded-tl-lg"></div>
+                                <div className="w-8 h-8 border-t-2 border-r-2 border-thai-tea rounded-tr-lg"></div>
+                            </div>
+                            <div className="flex justify-between">
+                                <div className="w-8 h-8 border-b-2 border-l-2 border-thai-tea rounded-bl-lg"></div>
+                                <div className="w-8 h-8 border-b-2 border-r-2 border-thai-tea rounded-br-lg"></div>
+                            </div>
+                        </div>
+                        
+                        {/* 變焦控制項 */}
+                        {isCameraReady && !isScanning && (
+                            <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-2/3 z-30 flex items-center gap-3">
+                                <span className="text-[10px] text-white/60 font-mono w-6 text-right">1x</span>
+                                <div className="flex-1 relative group">
+                                    <input 
+                                        type="range" 
+                                        min={zoomRange.min} 
+                                        max={zoomRange.max} 
+                                        step={zoomRange.step} 
+                                        value={zoom} 
+                                        onChange={handleZoomChange}
+                                        className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-thai-tea text-xs font-bold bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
+                                        {zoom.toFixed(1)}x
+                                    </div>
+                                </div>
+                                <span className="text-[10px] text-white/60 font-mono w-6">{Math.round(zoomRange.max)}x</span>
+                            </div>
+                        )}
+
+                        {/* 狀態提示膠囊 */}
+                        {isScanning && (
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+                                <div className="glass-panel px-6 py-3 rounded-full flex items-center gap-3 border border-thai-tea/30 shadow-neon">
+                                    <div className="w-2 h-2 bg-thai-tea rounded-full animate-ping"></div>
+                                    <span className="text-thai-tea text-xs font-medium tracking-wider uppercase">{processingStage}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 頂部工具列 */}
+                        <div className="absolute top-0 left-0 w-full p-6 pt-12 flex justify-between items-center z-30 bg-gradient-to-b from-black/80 to-transparent">
+                            <div className="w-10 h-10 invisible"></div>
+                            <div className="glass-panel rounded-full p-1 flex items-center">
+                                <button onClick={() => setMode('menu')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${mode === 'menu' ? 'bg-thai-tea text-tech-black shadow-lg' : 'text-white/60 hover:text-white'}`}>
+                                    菜單
+                                </button>
+                                <button onClick={() => setMode('sign')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${mode === 'sign' ? 'bg-thai-tea text-tech-black shadow-lg' : 'text-white/60 hover:text-white'}`}>
+                                    路牌
+                                </button>
+                            </div>
+                            <button className="p-3 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-colors">
+                                <Icon name="zap" className={isScanning ? "text-thai-tea fill-thai-tea" : "text-white"} size={20} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 下半部：結果與操作區 */}
+                    <div className="relative flex-1 -mt-10 z-30 flex flex-col px-4 pb-4">
+                        
+                        {/* 懸浮快門按鈕 */}
+                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
+                            <div className={`rounded-full p-1.5 transition-all duration-500 ${isScanning ? 'bg-white/10' : 'bg-gradient-to-br from-white/10 to-transparent border border-white/10'}`}>
+                                <button 
+                                    onClick={handleCaptureAndScan}
+                                    disabled={!isCameraReady || isScanning}
+                                    className={`w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group
+                                        ${isScanning ? 'bg-tech-dark scale-95 border-2 border-thai-tea/50' : 'bg-thai-tea hover:scale-105 hover:shadow-neon'}`}
+                                >
+                                    {isScanning ? (
+                                        <div className="w-8 h-8 border-2 border-thai-tea border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <Icon name="scan-line" className="w-8 h-8 text-tech-black group-hover:scale-110 transition-transform" />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 玻璃質感結果面板 */}
+                        <div className="flex-1 glass-panel rounded-[32px] overflow-hidden flex flex-col shadow-2xl relative">
+                            <div className="pt-12 px-6 pb-4 flex justify-between items-end border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
+                                <div>
+                                    <h3 className="text-2xl font-semibold text-white tracking-tight">AI 智能分析</h3>
+                                    <p className="text-xs text-white/40 mt-1 font-mono tracking-wider">
+                                        {menuItems.length > 0 ? "翻譯完成" : "準備掃描"}
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    {menuItems.length > 0 && (
+                                        <span className="w-2 h-2 rounded-full bg-thai-tea animate-pulse"></span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-3">
+                                {menuItems.length === 0 && !isScanning ? (
+                                    <div className="flex flex-col items-center justify-center h-[200px] text-white/20 space-y-4">
+                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center">
+                                            <Icon name="aperture" size={32} />
+                                        </div>
+                                        <p className="text-sm font-light">請對準菜單並點擊掃描按鈕</p>
+                                    </div>
+                                ) : (
+                                    menuItems.map((item, index) => (
+                                        <div 
+                                            key={item.id} 
+                                            className="menu-item glass-card rounded-2xl p-4 flex gap-4 items-start group hover:bg-white/5 transition-colors cursor-pointer"
+                                            style={{ animationDelay: `${index * 0.1}s` }}
+                                        >
+                                            <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-xs font-bold text-thai-tea shrink-0 font-mono group-hover:bg-thai-tea group-hover:text-tech-black transition-colors">
+                                                {index + 1}
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h4 className="font-bold text-white text-lg truncate pr-2">{item.zh}</h4>
+                                                    <span className="font-mono font-bold text-thai-tea text-lg">฿{item.price}</span>
+                                                </div>
+                                                <p className="text-sm thai-font text-white/50 truncate mb-2">{item.thai}</p>
+                                                
+                                                <div className="flex gap-2 flex-wrap">
+                                                    {item.desc && (
+                                                        <span className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-white/70">
+                                                            {item.desc}
+                                                        </span>
+                                                    )}
+                                                    {item.isSpicy && (
+                                                        <span className="text-[10px] bg-red-500/20 px-2 py-1 rounded-md text-red-400 flex items-center gap-1 border border-red-500/20">
+                                                            <Icon name="flame" size={10} /> 辣
+                                                        </span>
+                                                    )}
+                                                    {item.tags && item.tags.map(tag => (
+                                                        <span key={tag} className="text-[10px] bg-thai-tea/10 px-2 py-1 rounded-md text-thai-tea border border-thai-tea/20">
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                                <div className="h-16"></div>
+                            </div>
+                        </div>
+
+                        {/* 底部導航欄 */}
+                        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-[60%] z-50">
+                            <div className="glass-panel rounded-2xl p-2 flex justify-around items-center shadow-lg border border-white/10">
+                                <button className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-thai-tea bg-white/5 shadow-[0_0_10px_rgba(255,158,64,0.15)]">
+                                    <Icon name="scan-line" size={20} />
+                                </button>
+                                <button className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all">
+                                    <Icon name="history" size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <canvas ref={canvasRef} className="hidden"></canvas>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
