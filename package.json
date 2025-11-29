@@ -1,0 +1,12 @@
+{
+  "name": "thailingo-app",
+  "version": "1.0.0",
+  "description": "ThaiLingo Translation App with Gemini AI",
+  "main": "api/analyze.js",
+  "dependencies": {
+    "@google/generative-ai": "^0.1.3"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
