@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-  // 1. 允許簡單的 CORS (如果是在本地測試會用到，但在 Vercel 同網域通常不需要，加了保險)
+  // 1. 允許簡單的 CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -35,10 +35,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No image data provided' });
     }
 
-    // 3. 初始化模型 (改用最穩定的 1.5 Flash)
+    // 3. 初始化模型
     const genAI = new GoogleGenerativeAI(apiKey);
-    // 優先使用環境變數，否則使用 1.5 Flash
+    
+    // --- 修改處：改回最通用的 'gemini-1.5-flash' ---
+    // 這會自動指向目前最新的穩定 Flash 版本，避免 404 錯誤
     const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash"; 
+    
     const model = genAI.getGenerativeModel({ model: modelName });
 
     // 4. 設定 Prompt
@@ -90,7 +93,7 @@ export default async function handler(req, res) {
     // 清理 JSON
     let cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
-    // 嘗試解析，如果失敗則回傳原始文本以便除錯
+    // 嘗試解析
     let parsedData;
     try {
         parsedData = JSON.parse(cleanJson);
@@ -103,6 +106,7 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Server Error:", error);
+    // 回傳詳細錯誤
     res.status(500).json({ error: 'Processing Failed', details: error.message });
   }
 }
