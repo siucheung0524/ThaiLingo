@@ -105,7 +105,6 @@
             backdrop-filter: blur(10px);
         }
 
-        /* 自定義 Range Slider 樣式 (泰奶風格) */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -174,7 +173,6 @@
             const [processingStage, setProcessingStage] = useState(''); 
             const [isCameraReady, setIsCameraReady] = useState(false);
             
-            // Zoom 相關狀態 - 初始化為 1
             const [zoom, setZoom] = useState(1);
             const [zoomRange, setZoomRange] = useState({ min: 1, max: 3, step: 0.1 });
             const [isHardwareZoom, setIsHardwareZoom] = useState(false);
@@ -289,23 +287,20 @@
                     ctx.drawImage(video, 0, 0, width, height);
                 }
                 
-                // 轉為 Base64 並壓縮
                 const imageData = canvas.toDataURL('image/jpeg', 0.6);
-                
                 await callBackendApi(imageData);
                 
                 setIsScanning(false);
                 setProcessingStage('');
             };
 
-            // 改為呼叫真實的後端 API
             const callBackendApi = async (base64Image) => {
                 setProcessingStage('上傳影像中...');
                 
                 try {
-                    // 只傳送 base64 的內容部分 (移除 data:image/jpeg;base64, 前綴)
                     const imageContent = base64Image.split(',')[1];
                     
+                    // 呼叫後端 API
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: {
@@ -313,39 +308,33 @@
                         },
                         body: JSON.stringify({ 
                             image: imageContent,
-                            mode: mode // 'menu' or 'sign'
+                            mode: mode
                         })
                     });
 
+                    // 這裡會取得後端的詳細錯誤訊息
+                    const data = await response.json();
+
                     if (!response.ok) {
-                        throw new Error(`API Error: ${response.status}`);
+                        // 如果後端回傳 500/400/404，這裡會拋出具體錯誤
+                        throw new Error(data.details || data.error || `HTTP error! status: ${response.status}`);
                     }
 
                     setProcessingStage('AI 視覺分析中...');
-                    const data = await response.json();
-                    
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-
                     setMenuItems(data.items || []);
                 } catch (error) {
                     console.error("Analysis Failed:", error);
-                    // 如果是在本地預覽且沒有 API Key，可以顯示一個模擬錯誤或 fallback
-                    alert("翻譯失敗：請確認已連接網路，或檢查 Vercel 環境變數是否設定正確。");
+                    // 顯示詳細錯誤給使用者
+                    alert(`翻譯發生錯誤：\n${error.message}\n\n請檢查 Vercel 環境變數 GEMINI_API_KEY 是否已設定。`);
                 }
             };
 
             return (
                 <div className="flex flex-col h-screen w-full bg-tech-black text-white relative tech-grid font-sans">
-                    
-                    {/* 背景光暈裝飾 */}
                     <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[100px] pointer-events-none"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-thai-tea/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-                    {/* 上半部：相機取景區 */}
                     <div className="relative w-full h-[55%] overflow-hidden rounded-b-[40px] shadow-2xl z-10 border-b border-white/10 group bg-tech-dark">
-                        
                         {cameraError ? (
                             <div className="flex flex-col items-center justify-center h-full text-white/50 p-8 text-center bg-tech-dark">
                                 <Icon name="camera-off" size={48} className="mb-4 opacity-50" />
@@ -365,10 +354,8 @@
                             />
                         )}
 
-                        {/* 掃描線 */}
                         <div className={`scan-line z-20 ${isScanning ? 'block' : 'hidden'}`}></div>
 
-                        {/* Tech UI Overlay */}
                         <div className="absolute inset-0 pointer-events-none p-8 flex flex-col justify-between z-20 opacity-60">
                             <div className="flex justify-between">
                                 <div className="w-8 h-8 border-t-2 border-l-2 border-thai-tea rounded-tl-lg"></div>
@@ -380,7 +367,6 @@
                             </div>
                         </div>
                         
-                        {/* 變焦控制項 */}
                         {isCameraReady && !isScanning && (
                             <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-2/3 z-30 flex items-center gap-3">
                                 <span className="text-[10px] text-white/60 font-mono w-6 text-right">1x</span>
@@ -402,7 +388,6 @@
                             </div>
                         )}
 
-                        {/* 狀態提示膠囊 */}
                         {isScanning && (
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
                                 <div className="glass-panel px-6 py-3 rounded-full flex items-center gap-3 border border-thai-tea/30 shadow-neon">
@@ -412,7 +397,6 @@
                             </div>
                         )}
 
-                        {/* 頂部工具列 */}
                         <div className="absolute top-0 left-0 w-full p-6 pt-12 flex justify-between items-center z-30 bg-gradient-to-b from-black/80 to-transparent">
                             <div className="w-10 h-10 invisible"></div>
                             <div className="glass-panel rounded-full p-1 flex items-center">
@@ -429,10 +413,7 @@
                         </div>
                     </div>
 
-                    {/* 下半部：結果與操作區 */}
                     <div className="relative flex-1 -mt-10 z-30 flex flex-col px-4 pb-4">
-                        
-                        {/* 懸浮快門按鈕 */}
                         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
                             <div className={`rounded-full p-1.5 transition-all duration-500 ${isScanning ? 'bg-white/10' : 'bg-gradient-to-br from-white/10 to-transparent border border-white/10'}`}>
                                 <button 
@@ -450,7 +431,6 @@
                             </div>
                         </div>
 
-                        {/* 玻璃質感結果面板 */}
                         <div className="flex-1 glass-panel rounded-[32px] overflow-hidden flex flex-col shadow-2xl relative">
                             <div className="pt-12 px-6 pb-4 flex justify-between items-end border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
                                 <div>
@@ -517,7 +497,6 @@
                             </div>
                         </div>
 
-                        {/* 底部導航欄 */}
                         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-[60%] z-50">
                             <div className="glass-panel rounded-2xl p-2 flex justify-around items-center shadow-lg border border-white/10">
                                 <button className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-thai-tea bg-white/5 shadow-[0_0_10px_rgba(255,158,64,0.15)]">
