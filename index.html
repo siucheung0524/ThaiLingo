@@ -109,7 +109,7 @@
             backdrop-filter: blur(10px);
         }
 
-        /* 優化後的 Range Slider */
+        /* Range Slider */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -117,31 +117,24 @@
         
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 24px; /* 加大觸控區 */
-            width: 24px;
+            height: 20px;
+            width: 20px;
             border-radius: 50%;
-            background: #FF9E40; /* 泰奶橘 */
-            border: 3px solid #120b08; /* 深色邊框增加對比 */
+            background: #FF9E40;
+            border: 2px solid #050a06;
             cursor: pointer;
-            margin-top: -10px; /* 垂直置中修正 */
-            box-shadow: 0 0 15px rgba(255, 158, 64, 0.6); /* 發光效果 */
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(255, 158, 64, 0.5);
             position: relative;
             z-index: 50;
-            transition: transform 0.1s, background-color 0.1s;
-        }
-
-        /* 按下時的互動回饋 */
-        input[type=range]:active::-webkit-slider-thumb {
-            transform: scale(1.3);
-            background: #ffffff;
-            border-color: #FF9E40;
         }
         
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
             height: 4px;
             cursor: pointer;
-            background: transparent; /* 改由外部 div 繪製軌道 */
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
         }
         
         input[type=range]:focus {
@@ -188,6 +181,7 @@
         const App = () => {
             const videoRef = useRef(null);
             const canvasRef = useRef(null);
+            const fileInputRef = useRef(null); // 新增：用於觸發文件選擇
             const [isScanning, setIsScanning] = useState(false);
             const [menuItems, setMenuItems] = useState([]); 
             const [cameraError, setCameraError] = useState(null);
@@ -198,25 +192,16 @@
             const [capturedImage, setCapturedImage] = useState(null);
             const [history, setHistory] = useState([]);
             const [showHistory, setShowHistory] = useState(false);
-            
-            // Zoom 相關狀態
             const [zoom, setZoom] = useState(1);
             const [zoomRange, setZoomRange] = useState({ min: 1, max: 3, step: 0.1 });
             const [isHardwareZoom, setIsHardwareZoom] = useState(false);
-
-            // 閃光燈狀態
             const [supportsFlash, setSupportsFlash] = useState(false);
             const [isFlashlightOn, setIsFlashlightOn] = useState(false);
-
-            // 視窗佈局狀態
             const [layoutMode, setLayoutMode] = useState('scan'); 
-            
-            // 播放中的項目ID (用於UI回饋)
             const [playingId, setPlayingId] = useState(null);
 
             useEffect(() => {
                 startCamera();
-                // 只有在組件真正卸載時才停止相機
                 return () => stopCamera();
             }, []);
 
@@ -237,7 +222,6 @@
                         const track = stream.getVideoTracks()[0];
                         const capabilities = track.getCapabilities ? track.getCapabilities() : {};
                         
-                        // 檢查變焦
                         if (capabilities.zoom) {
                             setIsHardwareZoom(true);
                             setZoomRange({
@@ -252,7 +236,6 @@
                             setZoomRange({ min: 1, max: 3, step: 0.1 });
                         }
 
-                        // 檢查閃光燈 (Torch)
                         if (capabilities.torch) {
                             setSupportsFlash(true);
                         }
@@ -306,6 +289,41 @@
                         }
                     }
                 }
+            };
+
+            // 觸發文件選擇框
+            const handleUploadClick = () => {
+                if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                }
+            };
+
+            // 處理文件選擇
+            const handleFileChange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const imageData = event.target.result;
+                    
+                    // UI 狀態更新
+                    setIsScanning(true);
+                    setMenuItems([]);
+                    setProcessingStage('正在讀取圖片...');
+                    setIsDemoMode(false);
+                    setLayoutMode('result'); // 自動切換到結果視圖
+                    
+                    setCapturedImage(imageData); // 顯示上傳的圖片
+
+                    // 呼叫 API
+                    await callBackendApi(imageData);
+                    
+                    setIsScanning(false);
+                    setProcessingStage('');
+                };
+                reader.readAsDataURL(file);
+                e.target.value = ''; // 重置 input，確保重複選擇相同檔案也能觸發
             };
 
             const handleReset = () => {
@@ -444,7 +462,6 @@
 
                     {showHistory && (
                         <div className="absolute inset-0 z-50 bg-tech-black/95 backdrop-blur-md flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-300">
-                            {/* Header with Back Button */}
                             <div className="p-6 pt-12 pb-4 border-b border-white/10 bg-gradient-to-b from-thai-tea/10 to-transparent flex items-center gap-4">
                                 <button onClick={() => setShowHistory(false)} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors">
                                     <Icon name="arrow-left" size={24} />
@@ -538,20 +555,13 @@
                                 </div>
                             </div>
                             
-                            {/* 升級版變焦控制項 - 更長、更細緻 */}
                             {isCameraReady && !isScanning && !capturedImage && (
                                 <div className="absolute left-6 top-1/2 transform -translate-y-1/2 -translate-x-1/2 h-80 w-16 z-30 flex items-center justify-center group">
-                                    
-                                    {/* 倍率數值顯示 */}
                                     <div className="absolute -right-10 top-1/2 transform -translate-y-1/2 rotate-90 text-thai-tea text-xs font-bold font-mono whitespace-nowrap bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
                                         {zoom.toFixed(1)}x
                                     </div>
-                                    
-                                    {/* 頂底標籤 */}
                                     <div className="absolute -top-6 text-[10px] text-white/50 font-mono">{Math.round(zoomRange.max)}x</div>
                                     <div className="absolute -bottom-6 text-[10px] text-white/50 font-mono">1x</div>
-
-                                    {/* 垂直滑桿 */}
                                     <input 
                                         type="range" 
                                         min={zoomRange.min} 
@@ -562,16 +572,12 @@
                                         className="-rotate-90 w-64 h-12 appearance-none bg-transparent cursor-pointer z-20"
                                         style={{ background: 'transparent' }}
                                     />
-                                    
-                                    {/* 裝飾性軌道 (填充) */}
                                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1.5 h-64 bg-black/40 rounded-full -z-10 pointer-events-none border border-white/10 backdrop-blur-sm overflow-hidden">
                                         <div 
                                             className="absolute bottom-0 w-full bg-gradient-to-t from-thai-tea-dim to-thai-tea transition-all duration-75 ease-out"
                                             style={{ height: `${((zoom - zoomRange.min) / (zoomRange.max - zoomRange.min)) * 100}%` }}
                                         ></div>
                                     </div>
-
-                                    {/* 刻度線 */}
                                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-64 pointer-events-none -z-20 flex flex-col justify-between py-1 opacity-30">
                                         {[...Array(9)].map((_, i) => (
                                             <div key={i} className={`w-full h-px ${i === 0 || i === 8 || i === 4 ? 'bg-white w-3 mx-auto' : 'bg-white/50 w-1.5 mx-auto'}`}></div>
@@ -590,7 +596,22 @@
                             )}
 
                             <div className="absolute top-0 left-0 w-full p-6 pt-12 flex justify-between items-center z-30 bg-gradient-to-b from-black/80 to-transparent">
-                                <div className="w-12 h-12 invisible"></div>
+                                
+                                {/* 上傳按鈕 (原本是 invisible) */}
+                                <button 
+                                    onClick={handleUploadClick}
+                                    className="w-12 h-12 flex items-center justify-center rounded-full backdrop-blur-md border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-all duration-300"
+                                >
+                                    <Icon name="image" size={20} />
+                                </button>
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    accept="image/*" 
+                                    onChange={handleFileChange} 
+                                />
+
                                 <div className="glass-panel rounded-full p-1 flex items-center">
                                     <button onClick={() => setMode('menu')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${mode === 'menu' ? 'bg-thai-tea text-tech-black shadow-lg' : 'text-white/60 hover:text-white'}`}>
                                         菜單
