@@ -38,9 +38,9 @@ export default async function handler(req, res) {
     // 3. 初始化模型
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // --- 修改處：改回最通用的 'gemini-1.5-flash' ---
-    // 這會自動指向目前最新的穩定 Flash 版本，避免 404 錯誤
-    const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash"; 
+    // --- 修改處：改用 Gemini 2.5 Flash Lite ---
+    // 這款模型專為低延遲、低成本設計，非常適合即時影像分析
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite-preview-02-05"; 
     
     const model = genAI.getGenerativeModel({ model: modelName });
 
