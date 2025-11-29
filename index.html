@@ -109,7 +109,7 @@
             backdrop-filter: blur(10px);
         }
 
-        /* Range Slider */
+        /* 優化後的 Range Slider */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -117,24 +117,31 @@
         
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
+            height: 24px; /* 加大觸控區 */
+            width: 24px;
             border-radius: 50%;
-            background: #FF9E40;
-            border: 2px solid #050a06;
+            background: #FF9E40; /* 泰奶橘 */
+            border: 3px solid #120b08; /* 深色邊框增加對比 */
             cursor: pointer;
-            margin-top: -8px;
-            box-shadow: 0 0 10px rgba(255, 158, 64, 0.5);
+            margin-top: -10px; /* 垂直置中修正 */
+            box-shadow: 0 0 15px rgba(255, 158, 64, 0.6); /* 發光效果 */
             position: relative;
             z-index: 50;
+            transition: transform 0.1s, background-color 0.1s;
+        }
+
+        /* 按下時的互動回饋 */
+        input[type=range]:active::-webkit-slider-thumb {
+            transform: scale(1.3);
+            background: #ffffff;
+            border-color: #FF9E40;
         }
         
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
             height: 4px;
             cursor: pointer;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
+            background: transparent; /* 改由外部 div 繪製軌道 */
         }
         
         input[type=range]:focus {
@@ -149,14 +156,14 @@
         const { useState, useEffect, useRef } = React;
 
         const MOCK_GEMINI_RESPONSE = [
-            { id: 1, thai: "ต้มยำกุ้งน้ำข้น", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, tags: ["推薦", "熱門"] },
-            { id: 2, thai: "ผัดไทยกุ้งสด", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, tags: ["不辣"] },
-            { id: 3, thai: "ส้มตำไทย", zh: "泰式青木瓜沙拉", price: "80", desc: "清爽開胃，含花生", isSpicy: true, tags: [] },
-            { id: 4, thai: "ข้าวผัดปู", zh: "蟹肉炒飯", price: "150", desc: "大火快炒，鍋氣十足", isSpicy: false, tags: [] },
-            { id: 5, thai: "ปลากะพงทอดน้ำปลา", zh: "炸鱸魚佐魚露", price: "450", desc: "整條鱸魚酥炸", isSpicy: false, tags: ["大份"] },
-            { id: 6, thai: "น้ำแตงโมปั่น", zh: "西瓜冰沙", price: "60", desc: "解辣神器", isSpicy: false, tags: [] },
-            { id: 7, thai: "คอหมูย่าง", zh: "炭烤豬頸肉", price: "120", desc: "外焦裡嫩，配特製醬", isSpicy: false, tags: ["必點"] },
-            { id: 8, thai: "ลาบหมู", zh: "泰北涼拌豬肉", price: "90", desc: "香料味重，口感豐富", isSpicy: true, tags: [] },
+            { id: 1, thai: "ต้มยำกุ้งน้ำข้น", roman: "Tom Yum Kung Nam Khon", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, tags: ["推薦", "熱門"] },
+            { id: 2, thai: "ผัดไทยกุ้งสด", roman: "Pad Thai Kung Sod", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, tags: ["不辣"] },
+            { id: 3, thai: "ส้มตำไทย", roman: "Som Tum Thai", zh: "泰式青木瓜沙拉", price: "80", desc: "清爽開胃，含花生", isSpicy: true, tags: [] },
+            { id: 4, thai: "ข้าวผัดปู", roman: "Khao Pad Pu", zh: "蟹肉炒飯", price: "150", desc: "大火快炒，鍋氣十足", isSpicy: false, tags: [] },
+            { id: 5, thai: "ปลากะพงทอดน้ำปลา", roman: "Pla Kapong Tod Nam Pla", zh: "炸鱸魚佐魚露", price: "450", desc: "整條鱸魚酥炸", isSpicy: false, tags: ["大份"] },
+            { id: 6, thai: "น้ำแตงโมปั่น", roman: "Nam Tangmo Pan", zh: "西瓜冰沙", price: "60", desc: "解辣神器", isSpicy: false, tags: [] },
+            { id: 7, thai: "คอหมูย่าง", roman: "Kor Moo Yang", zh: "炭烤豬頸肉", price: "120", desc: "外焦裡嫩，配特製醬", isSpicy: false, tags: ["必點"] },
+            { id: 8, thai: "ลาบหมู", roman: "Larb Moo", zh: "泰北涼拌豬肉", price: "90", desc: "香料味重，口感豐富", isSpicy: true, tags: [] },
         ];
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -203,6 +210,9 @@
 
             // 視窗佈局狀態
             const [layoutMode, setLayoutMode] = useState('scan'); 
+            
+            // 播放中的項目ID (用於UI回饋)
+            const [playingId, setPlayingId] = useState(null);
 
             useEffect(() => {
                 startCamera();
@@ -227,6 +237,7 @@
                         const track = stream.getVideoTracks()[0];
                         const capabilities = track.getCapabilities ? track.getCapabilities() : {};
                         
+                        // 檢查變焦
                         if (capabilities.zoom) {
                             setIsHardwareZoom(true);
                             setZoomRange({
@@ -241,6 +252,7 @@
                             setZoomRange({ min: 1, max: 3, step: 0.1 });
                         }
 
+                        // 檢查閃光燈 (Torch)
                         if (capabilities.torch) {
                             setSupportsFlash(true);
                         }
@@ -409,21 +421,32 @@
                 setLayoutMode('result'); 
             };
 
+            const playThaiAudio = (text, id) => {
+                if (!window.speechSynthesis) {
+                    alert("您的裝置不支援發音功能");
+                    return;
+                }
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'th-TH'; 
+                utterance.rate = 0.9; 
+                utterance.onstart = () => setPlayingId(id);
+                utterance.onend = () => setPlayingId(null);
+                utterance.onerror = () => setPlayingId(null);
+                window.speechSynthesis.speak(utterance);
+            };
+
             return (
                 <div className="flex flex-col h-screen w-full bg-tech-black text-white relative tech-grid font-sans overflow-hidden">
                     
                     <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[100px] pointer-events-none"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-thai-tea/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-                    {/* 歷史頁面 Overlay */}
                     {showHistory && (
                         <div className="absolute inset-0 z-50 bg-tech-black/95 backdrop-blur-md flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-300">
                             {/* Header with Back Button */}
                             <div className="p-6 pt-12 pb-4 border-b border-white/10 bg-gradient-to-b from-thai-tea/10 to-transparent flex items-center gap-4">
-                                <button 
-                                    onClick={() => setShowHistory(false)}
-                                    className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors"
-                                >
+                                <button onClick={() => setShowHistory(false)} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors">
                                     <Icon name="arrow-left" size={24} />
                                 </button>
                                 <div>
@@ -467,9 +490,7 @@
                         </div>
                     )}
 
-                    {/* 主介面 (相機 + 結果) - 關鍵修改：始終渲染，僅使用 CSS 控制顯示 */}
                     <div className={`flex flex-col w-full h-full ${showHistory ? 'hidden' : 'flex'}`}>
-                        {/* 上半部：相機取景區 */}
                         <div className={`relative w-full transition-[height] duration-500 ease-in-out overflow-hidden rounded-b-[40px] shadow-2xl z-10 border-b border-white/10 group bg-tech-dark ${layoutMode === 'scan' ? 'h-[75%]' : 'h-[40%]'}`}>
                             
                             {capturedImage && (
@@ -497,7 +518,6 @@
 
                             <div className={`scan-line z-20 ${isScanning ? 'block' : 'hidden'}`}></div>
 
-                            {/* 手動切換視圖按鈕 (上移至 bottom-24 以防遮擋) */}
                             {!isScanning && !capturedImage && (
                                 <button 
                                     onClick={() => setLayoutMode(prev => prev === 'scan' ? 'result' : 'scan')}
@@ -507,7 +527,6 @@
                                 </button>
                             )}
 
-                            {/* A4 輔助對焦框 */}
                             <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between z-20 opacity-60 transition-all duration-500 ${layoutMode === 'scan' ? 'p-12' : 'p-6'}`}>
                                 <div className="flex justify-between">
                                     <div className="w-8 h-8 border-t-2 border-l-2 border-thai-tea rounded-tl-lg"></div>
@@ -519,39 +538,48 @@
                                 </div>
                             </div>
                             
-                            {/* 變焦控制項 - 改為垂直式，位於左側 */}
+                            {/* 升級版變焦控制項 - 更長、更細緻 */}
                             {isCameraReady && !isScanning && !capturedImage && (
-                                <div className="absolute left-6 top-1/2 transform -translate-y-1/2 -translate-x-1/2 h-64 w-12 z-30 flex items-center justify-center group opacity-60 hover:opacity-100 transition-opacity">
-                                    {/* 倍率數值顯示 (跟隨手指或固定在旁) */}
-                                    <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 rotate-90 text-thai-tea text-xs font-bold font-mono whitespace-nowrap bg-black/50 px-2 py-1 rounded backdrop-blur-md">
+                                <div className="absolute left-6 top-1/2 transform -translate-y-1/2 -translate-x-1/2 h-80 w-16 z-30 flex items-center justify-center group">
+                                    
+                                    {/* 倍率數值顯示 */}
+                                    <div className="absolute -right-10 top-1/2 transform -translate-y-1/2 rotate-90 text-thai-tea text-xs font-bold font-mono whitespace-nowrap bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
                                         {zoom.toFixed(1)}x
                                     </div>
                                     
+                                    {/* 頂底標籤 */}
+                                    <div className="absolute -top-6 text-[10px] text-white/50 font-mono">{Math.round(zoomRange.max)}x</div>
+                                    <div className="absolute -bottom-6 text-[10px] text-white/50 font-mono">1x</div>
+
                                     {/* 垂直滑桿 */}
                                     <input 
                                         type="range" 
                                         min={zoomRange.min} 
                                         max={zoomRange.max} 
-                                        step={zoomRange.step} 
+                                        step={0.1} 
                                         value={zoom} 
                                         onChange={handleZoomChange}
-                                        className="-rotate-90 w-48 h-12 appearance-none bg-transparent cursor-pointer"
-                                        style={{
-                                            background: 'transparent'
-                                        }}
+                                        className="-rotate-90 w-64 h-12 appearance-none bg-transparent cursor-pointer z-20"
+                                        style={{ background: 'transparent' }}
                                     />
                                     
-                                    {/* 裝飾性軌道 */}
-                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-48 bg-white/20 rounded-full -z-10 pointer-events-none">
+                                    {/* 裝飾性軌道 (填充) */}
+                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1.5 h-64 bg-black/40 rounded-full -z-10 pointer-events-none border border-white/10 backdrop-blur-sm overflow-hidden">
                                         <div 
-                                            className="absolute bottom-0 w-full bg-thai-tea/50 rounded-full transition-all"
+                                            className="absolute bottom-0 w-full bg-gradient-to-t from-thai-tea-dim to-thai-tea transition-all duration-75 ease-out"
                                             style={{ height: `${((zoom - zoomRange.min) / (zoomRange.max - zoomRange.min)) * 100}%` }}
                                         ></div>
+                                    </div>
+
+                                    {/* 刻度線 */}
+                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-64 pointer-events-none -z-20 flex flex-col justify-between py-1 opacity-30">
+                                        {[...Array(9)].map((_, i) => (
+                                            <div key={i} className={`w-full h-px ${i === 0 || i === 8 || i === 4 ? 'bg-white w-3 mx-auto' : 'bg-white/50 w-1.5 mx-auto'}`}></div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
 
-                            {/* 狀態提示 */}
                             {isScanning && (
                                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
                                     <div className="glass-panel px-6 py-3 rounded-full flex items-center gap-3 border border-thai-tea/30 shadow-neon">
@@ -561,7 +589,6 @@
                                 </div>
                             )}
 
-                            {/* 頂部工具列 */}
                             <div className="absolute top-0 left-0 w-full p-6 pt-12 flex justify-between items-center z-30 bg-gradient-to-b from-black/80 to-transparent">
                                 <div className="w-12 h-12 invisible"></div>
                                 <div className="glass-panel rounded-full p-1 flex items-center">
@@ -572,8 +599,6 @@
                                         路牌
                                     </button>
                                 </div>
-                                
-                                {/* 閃光燈按鈕 */}
                                 <button 
                                     onClick={toggleFlashlight}
                                     disabled={!supportsFlash}
@@ -584,9 +609,7 @@
                             </div>
                         </div>
 
-                        {/* 下半部：結果與操作區 */}
                         <div className="relative flex-1 -mt-10 z-30 flex flex-col px-4 pb-4 min-h-0">
-                            {/* 懸浮快門按鈕 */}
                             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
                                 <div className={`rounded-full p-1.5 transition-all duration-500 ${isScanning ? 'bg-white/10' : 'bg-gradient-to-br from-white/10 to-transparent border border-white/10'}`}>
                                     <button 
@@ -604,7 +627,6 @@
                                 </div>
                             </div>
 
-                            {/* 結果面板 */}
                             <div className="flex-1 glass-panel rounded-[32px] overflow-hidden flex flex-col shadow-2xl relative">
                                 <div className="pt-12 px-6 pb-4 flex justify-between items-end border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent flex-shrink-0">
                                     <div>
@@ -630,14 +652,25 @@
                                         ) : (
                                             <>
                                                 {menuItems.map((item, index) => (
-                                                    <div key={item.id} className="menu-item glass-card rounded-2xl p-4 flex gap-4 items-start group hover:bg-white/5 transition-colors cursor-pointer" style={{ animationDelay: `${index * 0.1}s` }}>
+                                                    <div 
+                                                        key={item.id} 
+                                                        onClick={() => playThaiAudio(item.thai, item.id)}
+                                                        className={`menu-item glass-card rounded-2xl p-4 flex gap-4 items-start group transition-all cursor-pointer border ${playingId === item.id ? 'border-thai-tea bg-thai-tea/10 shadow-neon' : 'border-white/5 hover:bg-white/5 hover:border-white/20'}`} 
+                                                        style={{ animationDelay: `${index * 0.1}s` }}
+                                                    >
                                                         <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-xs font-bold text-thai-tea shrink-0 font-mono group-hover:bg-thai-tea group-hover:text-tech-black transition-colors">{index + 1}</div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex justify-between items-start mb-1">
                                                                 <h4 className="font-bold text-white text-lg truncate pr-2">{item.zh}</h4>
                                                                 <span className="font-mono font-bold text-thai-tea text-lg">฿{item.price}</span>
                                                             </div>
-                                                            <p className="text-sm thai-font text-white/50 truncate mb-2">{item.thai}</p>
+                                                            <div className="flex items-start gap-2 mb-2">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm thai-font text-white/50 truncate">{item.thai}</p>
+                                                                    <p className="text-xs text-thai-tea/80 font-medium truncate mt-0.5">{item.roman}</p>
+                                                                </div>
+                                                                <Icon name="volume-2" size={16} className={`transition-colors mt-1 ${playingId === item.id ? 'text-thai-tea animate-pulse' : 'text-white/30 group-hover:text-white/70'}`} />
+                                                            </div>
                                                             <div className="flex gap-2 flex-wrap">
                                                                 {item.desc && <span className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-white/70">{item.desc}</span>}
                                                                 {item.isSpicy && <span className="text-[10px] bg-red-500/20 px-2 py-1 rounded-md text-red-400 flex items-center gap-1 border border-red-500/20"><Icon name="flame" size={10} /> 辣</span>}
@@ -653,7 +686,6 @@
                                 </div>
                             </div>
 
-                            {/* 底部導航欄 */}
                             <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-[60%] z-50">
                                 <div className="glass-panel rounded-2xl p-2 flex justify-around items-center shadow-lg border border-white/10">
                                     <button onClick={() => setShowHistory(false)} className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-all ${!showHistory ? 'text-thai-tea bg-white/5 shadow-[0_0_10px_rgba(255,158,64,0.15)]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
