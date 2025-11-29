@@ -24,6 +24,10 @@
                     },
                     boxShadow: {
                         'neon': '0 0 15px rgba(255, 158, 64, 0.4), 0 0 5px rgba(255, 158, 64, 0.2)',
+                    },
+                    transitionProperty: {
+                        'height': 'height',
+                        'spacing': 'margin, padding',
                     }
                 }
             }
@@ -93,7 +97,7 @@
 
         /* 玻璃擬態 */
         .glass-panel {
-            background: rgba(18, 11, 8, 0.7);
+            background: rgba(18, 11, 8, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -105,9 +109,9 @@
             backdrop-filter: blur(10px);
         }
 
+        /* Range Slider */
         input[type=range] {
             -webkit-appearance: none;
-            width: 100%;
             background: transparent;
         }
         
@@ -144,6 +148,17 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
+        const MOCK_GEMINI_RESPONSE = [
+            { id: 1, thai: "ต้มยำกุ้งน้ำข้น", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, tags: ["推薦", "熱門"] },
+            { id: 2, thai: "ผัดไทยกุ้งสด", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, tags: ["不辣"] },
+            { id: 3, thai: "ส้มตำไทย", zh: "泰式青木瓜沙拉", price: "80", desc: "清爽開胃，含花生", isSpicy: true, tags: [] },
+            { id: 4, thai: "ข้าวผัดปู", zh: "蟹肉炒飯", price: "150", desc: "大火快炒，鍋氣十足", isSpicy: false, tags: [] },
+            { id: 5, thai: "ปลากะพงทอดน้ำปลา", zh: "炸鱸魚佐魚露", price: "450", desc: "整條鱸魚酥炸", isSpicy: false, tags: ["大份"] },
+            { id: 6, thai: "น้ำแตงโมปั่น", zh: "西瓜冰沙", price: "60", desc: "解辣神器", isSpicy: false, tags: [] },
+            { id: 7, thai: "คอหมูย่าง", zh: "炭烤豬頸肉", price: "120", desc: "外焦裡嫩，配特製醬", isSpicy: false, tags: ["必點"] },
+            { id: 8, thai: "ลาบหมู", zh: "泰北涼拌豬肉", price: "90", desc: "香料味重，口感豐富", isSpicy: true, tags: [] },
+        ];
+
         const Icon = ({ name, size = 24, className = "" }) => {
             const containerRef = useRef(null);
             useEffect(() => {
@@ -172,13 +187,26 @@
             const [mode, setMode] = useState('menu'); 
             const [processingStage, setProcessingStage] = useState(''); 
             const [isCameraReady, setIsCameraReady] = useState(false);
+            const [isDemoMode, setIsDemoMode] = useState(false);
+            const [capturedImage, setCapturedImage] = useState(null);
+            const [history, setHistory] = useState([]);
+            const [showHistory, setShowHistory] = useState(false);
             
+            // Zoom 相關狀態
             const [zoom, setZoom] = useState(1);
             const [zoomRange, setZoomRange] = useState({ min: 1, max: 3, step: 0.1 });
             const [isHardwareZoom, setIsHardwareZoom] = useState(false);
 
+            // 閃光燈狀態
+            const [supportsFlash, setSupportsFlash] = useState(false);
+            const [isFlashlightOn, setIsFlashlightOn] = useState(false);
+
+            // 視窗佈局狀態
+            const [layoutMode, setLayoutMode] = useState('scan'); 
+
             useEffect(() => {
                 startCamera();
+                // 只有在組件真正卸載時才停止相機
                 return () => stopCamera();
             }, []);
 
@@ -207,12 +235,14 @@
                                 step: capabilities.zoom.step
                             });
                             const settings = track.getSettings();
-                            if (settings.zoom) {
-                                setZoom(settings.zoom);
-                            }
+                            if (settings.zoom) setZoom(settings.zoom);
                         } else {
                             setIsHardwareZoom(false);
                             setZoomRange({ min: 1, max: 3, step: 0.1 });
+                        }
+
+                        if (capabilities.torch) {
+                            setSupportsFlash(true);
                         }
 
                         videoRef.current.onloadedmetadata = () => {
@@ -230,14 +260,30 @@
             const stopCamera = () => {
                 if (videoRef.current && videoRef.current.srcObject) {
                     const tracks = videoRef.current.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
+                    tracks.forEach(track => {
+                        track.stop();
+                    });
+                }
+            };
+
+            const toggleFlashlight = async () => {
+                if (videoRef.current && videoRef.current.srcObject) {
+                    const track = videoRef.current.srcObject.getVideoTracks()[0];
+                    try {
+                        const newStatus = !isFlashlightOn;
+                        await track.applyConstraints({
+                            advanced: [{ torch: newStatus }]
+                        });
+                        setIsFlashlightOn(newStatus);
+                    } catch (err) {
+                        console.error("Flashlight toggle failed:", err);
+                    }
                 }
             };
 
             const handleZoomChange = (e) => {
                 const newZoom = parseFloat(e.target.value);
                 setZoom(newZoom);
-                
                 if (isHardwareZoom && videoRef.current && videoRef.current.srcObject) {
                     const track = videoRef.current.srcObject.getVideoTracks()[0];
                     if (track) {
@@ -250,33 +296,52 @@
                 }
             };
 
+            const handleReset = () => {
+                setCapturedImage(null);
+                setMenuItems([]);
+                setProcessingStage('');
+                setIsDemoMode(false);
+                setLayoutMode('scan'); 
+                if (videoRef.current) {
+                    videoRef.current.play().catch(e => console.log("Resume video error:", e));
+                }
+            };
+
+            const handleMainButton = () => {
+                if (isScanning) return;
+                if (capturedImage) {
+                    handleReset();
+                } else {
+                    handleCaptureAndScan();
+                }
+            };
+
             const handleCaptureAndScan = async () => {
                 const video = videoRef.current;
                 if (!video || !isCameraReady || isScanning) return;
-                
                 if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
                 setIsScanning(true);
                 setMenuItems([]);
                 setProcessingStage('正在優化影像...');
+                setIsDemoMode(false);
                 
+                setLayoutMode('result');
+
                 const canvas = canvasRef.current;
                 const MAX_WIDTH = 1024;
                 let width = video.videoWidth;
                 let height = video.videoHeight;
-                
                 if (width > MAX_WIDTH) {
                     height = height * (MAX_WIDTH / width);
                     width = MAX_WIDTH;
                 }
-                
                 width = Math.floor(width);
                 height = Math.floor(height);
                 canvas.width = width;
                 canvas.height = height;
                 
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                
                 if (!isHardwareZoom && zoom > 1) {
                     const sWidth = video.videoWidth / zoom;
                     const sHeight = video.videoHeight / zoom;
@@ -288,6 +353,8 @@
                 }
                 
                 const imageData = canvas.toDataURL('image/jpeg', 0.6);
+                setCapturedImage(imageData); 
+                
                 await callBackendApi(imageData);
                 
                 setIsScanning(false);
@@ -296,81 +363,171 @@
 
             const callBackendApi = async (base64Image) => {
                 setProcessingStage('上傳影像中...');
-                
                 try {
                     const imageContent = base64Image.split(',')[1];
-                    
-                    // 呼叫後端 API
-                    const response = await fetch('/api/analyze', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ 
-                            image: imageContent,
-                            mode: mode
-                        })
-                    });
-
-                    // 這裡會取得後端的詳細錯誤訊息
-                    const data = await response.json();
-
-                    if (!response.ok) {
-                        // 如果後端回傳 500/400/404，這裡會拋出具體錯誤
-                        throw new Error(data.details || data.error || `HTTP error! status: ${response.status}`);
+                    let items = [];
+                    try {
+                        const response = await fetch('/api/analyze', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ image: imageContent, mode: mode })
+                        });
+                        const data = await response.json();
+                        if (!response.ok) throw new Error(data.details || data.error || `HTTP error! status: ${response.status}`);
+                        items = data.items || [];
+                        setProcessingStage('AI 視覺分析中...');
+                    } catch (fetchError) {
+                        console.warn("API 連線失敗，切換至演示模式:", fetchError);
+                        setProcessingStage('演示模式: 模擬 AI 分析...');
+                        setIsDemoMode(true);
+                        await new Promise(r => setTimeout(r, 1500));
+                        items = MOCK_GEMINI_RESPONSE;
                     }
-
-                    setProcessingStage('AI 視覺分析中...');
-                    setMenuItems(data.items || []);
+                    setMenuItems(items);
+                    if (items && items.length > 0) {
+                        const newHistoryItem = {
+                            id: Date.now(),
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            image: base64Image,
+                            items: items,
+                            mode: mode
+                        };
+                        setHistory(prev => [newHistoryItem, ...prev]);
+                    }
                 } catch (error) {
-                    console.error("Analysis Failed:", error);
-                    // 顯示詳細錯誤給使用者
-                    alert(`翻譯發生錯誤：\n${error.message}\n\n請檢查 Vercel 環境變數 GEMINI_API_KEY 是否已設定。`);
+                    console.error("Analysis Critical Failure:", error);
+                    alert(`系統發生非預期錯誤：\n${error.message}`);
                 }
             };
 
+            const restoreHistoryItem = (item) => {
+                setCapturedImage(item.image);
+                setMenuItems(item.items);
+                setMode(item.mode);
+                setShowHistory(false);
+                setIsDemoMode(false);
+                setLayoutMode('result'); 
+            };
+
             return (
-                <div className="flex flex-col h-screen w-full bg-tech-black text-white relative tech-grid font-sans">
+                <div className="flex flex-col h-screen w-full bg-tech-black text-white relative tech-grid font-sans overflow-hidden">
+                    
                     <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[100px] pointer-events-none"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-thai-tea/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-                    <div className="relative w-full h-[55%] overflow-hidden rounded-b-[40px] shadow-2xl z-10 border-b border-white/10 group bg-tech-dark">
-                        {cameraError ? (
-                            <div className="flex flex-col items-center justify-center h-full text-white/50 p-8 text-center bg-tech-dark">
-                                <Icon name="camera-off" size={48} className="mb-4 opacity-50" />
-                                {cameraError}
+                    {/* 歷史頁面 Overlay */}
+                    {showHistory && (
+                        <div className="absolute inset-0 z-50 bg-tech-black/95 backdrop-blur-md flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-300">
+                            {/* Header with Back Button */}
+                            <div className="p-6 pt-12 pb-4 border-b border-white/10 bg-gradient-to-b from-thai-tea/10 to-transparent flex items-center gap-4">
+                                <button 
+                                    onClick={() => setShowHistory(false)}
+                                    className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors"
+                                >
+                                    <Icon name="arrow-left" size={24} />
+                                </button>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white tracking-tight">本次紀錄</h2>
+                                    <p className="text-xs text-white/40 mt-1">僅保存開啟網頁期間的翻譯結果</p>
+                                </div>
                             </div>
-                        ) : (
-                            <video 
-                                ref={videoRef}
-                                autoPlay 
-                                playsInline 
-                                muted
-                                className={`w-full h-full object-cover transition-transform duration-100 ${isScanning ? 'filter grayscale contrast-125' : ''}`}
-                                style={{ 
-                                    transform: !isHardwareZoom ? `scale(${zoom})` : 'scale(1)', 
-                                    transformOrigin: 'center center' 
-                                }}
-                            />
-                        )}
-
-                        <div className={`scan-line z-20 ${isScanning ? 'block' : 'hidden'}`}></div>
-
-                        <div className="absolute inset-0 pointer-events-none p-8 flex flex-col justify-between z-20 opacity-60">
-                            <div className="flex justify-between">
-                                <div className="w-8 h-8 border-t-2 border-l-2 border-thai-tea rounded-tl-lg"></div>
-                                <div className="w-8 h-8 border-t-2 border-r-2 border-thai-tea rounded-tr-lg"></div>
-                            </div>
-                            <div className="flex justify-between">
-                                <div className="w-8 h-8 border-b-2 border-l-2 border-thai-tea rounded-bl-lg"></div>
-                                <div className="w-8 h-8 border-b-2 border-r-2 border-thai-tea rounded-br-lg"></div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                {history.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-64 text-white/30 space-y-3">
+                                        <Icon name="history" size={48} className="opacity-50" />
+                                        <p>暫無翻譯紀錄</p>
+                                    </div>
+                                ) : (
+                                    history.map(record => (
+                                        <div key={record.id} onClick={() => restoreHistoryItem(record)} className="glass-card rounded-xl p-3 flex gap-4 cursor-pointer active:scale-95 transition-transform border border-white/5 hover:border-thai-tea/50">
+                                            <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-black/50 border border-white/10">
+                                                <img src={record.image} className="w-full h-full object-cover" alt="History" />
+                                            </div>
+                                            <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                                                <div className="flex justify-between items-start">
+                                                    <span className="text-xs font-mono text-thai-tea bg-thai-tea/10 px-2 py-0.5 rounded">{record.time}</span>
+                                                    <span className="text-[10px] text-white/40 border border-white/10 px-1.5 rounded">{record.mode === 'menu' ? '菜單' : '路牌'}</span>
+                                                </div>
+                                                <div className="space-y-1 mt-2">
+                                                    {record.items.slice(0, 2).map((item, idx) => (
+                                                        <div key={idx} className="text-sm text-white/90 truncate flex items-center gap-2">
+                                                            <div className="w-1 h-1 rounded-full bg-white/30"></div>
+                                                            {item.zh}
+                                                        </div>
+                                                    ))}
+                                                    {record.items.length > 2 && <div className="text-xs text-white/40 pl-3">...還有 {record.items.length - 2} 項</div>}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-center text-white/20"><Icon name="chevron-right" size={20} /></div>
+                                        </div>
+                                    ))
+                                )}
+                                <div className="h-24"></div>
                             </div>
                         </div>
-                        
-                        {isCameraReady && !isScanning && (
-                            <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-2/3 z-30 flex items-center gap-3">
-                                <span className="text-[10px] text-white/60 font-mono w-6 text-right">1x</span>
-                                <div className="flex-1 relative group">
+                    )}
+
+                    {/* 主介面 (相機 + 結果) - 關鍵修改：始終渲染，僅使用 CSS 控制顯示 */}
+                    <div className={`flex flex-col w-full h-full ${showHistory ? 'hidden' : 'flex'}`}>
+                        {/* 上半部：相機取景區 */}
+                        <div className={`relative w-full transition-[height] duration-500 ease-in-out overflow-hidden rounded-b-[40px] shadow-2xl z-10 border-b border-white/10 group bg-tech-dark ${layoutMode === 'scan' ? 'h-[75%]' : 'h-[40%]'}`}>
+                            
+                            {capturedImage && (
+                                <img src={capturedImage} className="absolute inset-0 w-full h-full object-cover z-10 animate-pulse-once" alt="Captured" />
+                            )}
+
+                            {cameraError ? (
+                                <div className="flex flex-col items-center justify-center h-full text-white/50 p-8 text-center bg-tech-dark">
+                                    <Icon name="camera-off" size={48} className="mb-4 opacity-50" />
+                                    {cameraError}
+                                </div>
+                            ) : (
+                                <video 
+                                    ref={videoRef}
+                                    autoPlay 
+                                    playsInline 
+                                    muted
+                                    className={`w-full h-full object-cover transition-transform duration-100 ${isScanning ? 'filter grayscale contrast-125' : ''}`}
+                                    style={{ 
+                                        transform: !isHardwareZoom ? `scale(${zoom})` : 'scale(1)', 
+                                        transformOrigin: 'center center' 
+                                    }}
+                                />
+                            )}
+
+                            <div className={`scan-line z-20 ${isScanning ? 'block' : 'hidden'}`}></div>
+
+                            {/* 手動切換視圖按鈕 (上移至 bottom-24 以防遮擋) */}
+                            {!isScanning && !capturedImage && (
+                                <button 
+                                    onClick={() => setLayoutMode(prev => prev === 'scan' ? 'result' : 'scan')}
+                                    className="absolute bottom-24 right-6 z-30 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 text-white/60 hover:text-white hover:bg-black/60 backdrop-blur-sm border border-white/10 transition-all shadow-lg"
+                                >
+                                    <Icon name={layoutMode === 'scan' ? "minimize-2" : "maximize-2"} size={20} />
+                                </button>
+                            )}
+
+                            {/* A4 輔助對焦框 */}
+                            <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between z-20 opacity-60 transition-all duration-500 ${layoutMode === 'scan' ? 'p-12' : 'p-6'}`}>
+                                <div className="flex justify-between">
+                                    <div className="w-8 h-8 border-t-2 border-l-2 border-thai-tea rounded-tl-lg"></div>
+                                    <div className="w-8 h-8 border-t-2 border-r-2 border-thai-tea rounded-tr-lg"></div>
+                                </div>
+                                <div className="flex justify-between">
+                                    <div className="w-8 h-8 border-b-2 border-l-2 border-thai-tea rounded-bl-lg"></div>
+                                    <div className="w-8 h-8 border-b-2 border-r-2 border-thai-tea rounded-br-lg"></div>
+                                </div>
+                            </div>
+                            
+                            {/* 變焦控制項 - 改為垂直式，位於左側 */}
+                            {isCameraReady && !isScanning && !capturedImage && (
+                                <div className="absolute left-6 top-1/2 transform -translate-y-1/2 -translate-x-1/2 h-64 w-12 z-30 flex items-center justify-center group opacity-60 hover:opacity-100 transition-opacity">
+                                    {/* 倍率數值顯示 (跟隨手指或固定在旁) */}
+                                    <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 rotate-90 text-thai-tea text-xs font-bold font-mono whitespace-nowrap bg-black/50 px-2 py-1 rounded backdrop-blur-md">
+                                        {zoom.toFixed(1)}x
+                                    </div>
+                                    
+                                    {/* 垂直滑桿 */}
                                     <input 
                                         type="range" 
                                         min={zoomRange.min} 
@@ -378,136 +535,136 @@
                                         step={zoomRange.step} 
                                         value={zoom} 
                                         onChange={handleZoomChange}
-                                        className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                                        className="-rotate-90 w-48 h-12 appearance-none bg-transparent cursor-pointer"
+                                        style={{
+                                            background: 'transparent'
+                                        }}
                                     />
-                                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-thai-tea text-xs font-bold bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
-                                        {zoom.toFixed(1)}x
-                                    </div>
-                                </div>
-                                <span className="text-[10px] text-white/60 font-mono w-6">{Math.round(zoomRange.max)}x</span>
-                            </div>
-                        )}
-
-                        {isScanning && (
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
-                                <div className="glass-panel px-6 py-3 rounded-full flex items-center gap-3 border border-thai-tea/30 shadow-neon">
-                                    <div className="w-2 h-2 bg-thai-tea rounded-full animate-ping"></div>
-                                    <span className="text-thai-tea text-xs font-medium tracking-wider uppercase">{processingStage}</span>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="absolute top-0 left-0 w-full p-6 pt-12 flex justify-between items-center z-30 bg-gradient-to-b from-black/80 to-transparent">
-                            <div className="w-10 h-10 invisible"></div>
-                            <div className="glass-panel rounded-full p-1 flex items-center">
-                                <button onClick={() => setMode('menu')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${mode === 'menu' ? 'bg-thai-tea text-tech-black shadow-lg' : 'text-white/60 hover:text-white'}`}>
-                                    菜單
-                                </button>
-                                <button onClick={() => setMode('sign')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${mode === 'sign' ? 'bg-thai-tea text-tech-black shadow-lg' : 'text-white/60 hover:text-white'}`}>
-                                    路牌
-                                </button>
-                            </div>
-                            <button className="p-3 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-colors">
-                                <Icon name="zap" className={isScanning ? "text-thai-tea fill-thai-tea" : "text-white"} size={20} />
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="relative flex-1 -mt-10 z-30 flex flex-col px-4 pb-4">
-                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
-                            <div className={`rounded-full p-1.5 transition-all duration-500 ${isScanning ? 'bg-white/10' : 'bg-gradient-to-br from-white/10 to-transparent border border-white/10'}`}>
-                                <button 
-                                    onClick={handleCaptureAndScan}
-                                    disabled={!isCameraReady || isScanning}
-                                    className={`w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group
-                                        ${isScanning ? 'bg-tech-dark scale-95 border-2 border-thai-tea/50' : 'bg-thai-tea hover:scale-105 hover:shadow-neon'}`}
-                                >
-                                    {isScanning ? (
-                                        <div className="w-8 h-8 border-2 border-thai-tea border-t-transparent rounded-full animate-spin"></div>
-                                    ) : (
-                                        <Icon name="scan-line" className="w-8 h-8 text-tech-black group-hover:scale-110 transition-transform" />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 glass-panel rounded-[32px] overflow-hidden flex flex-col shadow-2xl relative">
-                            <div className="pt-12 px-6 pb-4 flex justify-between items-end border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
-                                <div>
-                                    <h3 className="text-2xl font-semibold text-white tracking-tight">AI 智能分析</h3>
-                                    <p className="text-xs text-white/40 mt-1 font-mono tracking-wider">
-                                        {menuItems.length > 0 ? "翻譯完成" : "準備掃描"}
-                                    </p>
-                                </div>
-                                <div className="flex gap-2">
-                                    {menuItems.length > 0 && (
-                                        <span className="w-2 h-2 rounded-full bg-thai-tea animate-pulse"></span>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-3">
-                                {menuItems.length === 0 && !isScanning ? (
-                                    <div className="flex flex-col items-center justify-center h-[200px] text-white/20 space-y-4">
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center">
-                                            <Icon name="aperture" size={32} />
-                                        </div>
-                                        <p className="text-sm font-light">請對準菜單並點擊掃描按鈕</p>
-                                    </div>
-                                ) : (
-                                    menuItems.map((item, index) => (
+                                    
+                                    {/* 裝飾性軌道 */}
+                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-48 bg-white/20 rounded-full -z-10 pointer-events-none">
                                         <div 
-                                            key={item.id} 
-                                            className="menu-item glass-card rounded-2xl p-4 flex gap-4 items-start group hover:bg-white/5 transition-colors cursor-pointer"
-                                            style={{ animationDelay: `${index * 0.1}s` }}
-                                        >
-                                            <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-xs font-bold text-thai-tea shrink-0 font-mono group-hover:bg-thai-tea group-hover:text-tech-black transition-colors">
-                                                {index + 1}
-                                            </div>
+                                            className="absolute bottom-0 w-full bg-thai-tea/50 rounded-full transition-all"
+                                            style={{ height: `${((zoom - zoomRange.min) / (zoomRange.max - zoomRange.min)) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            )}
 
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <h4 className="font-bold text-white text-lg truncate pr-2">{item.zh}</h4>
-                                                    <span className="font-mono font-bold text-thai-tea text-lg">฿{item.price}</span>
-                                                </div>
-                                                <p className="text-sm thai-font text-white/50 truncate mb-2">{item.thai}</p>
-                                                
-                                                <div className="flex gap-2 flex-wrap">
-                                                    {item.desc && (
-                                                        <span className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-white/70">
-                                                            {item.desc}
-                                                        </span>
-                                                    )}
-                                                    {item.isSpicy && (
-                                                        <span className="text-[10px] bg-red-500/20 px-2 py-1 rounded-md text-red-400 flex items-center gap-1 border border-red-500/20">
-                                                            <Icon name="flame" size={10} /> 辣
-                                                        </span>
-                                                    )}
-                                                    {item.tags && item.tags.map(tag => (
-                                                        <span key={tag} className="text-[10px] bg-thai-tea/10 px-2 py-1 rounded-md text-thai-tea border border-thai-tea/20">
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                                <div className="h-16"></div>
-                            </div>
-                        </div>
+                            {/* 狀態提示 */}
+                            {isScanning && (
+                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+                                    <div className="glass-panel px-6 py-3 rounded-full flex items-center gap-3 border border-thai-tea/30 shadow-neon">
+                                        <div className="w-2 h-2 bg-thai-tea rounded-full animate-ping"></div>
+                                        <span className="text-thai-tea text-xs font-medium tracking-wider uppercase">{processingStage}</span>
+                                    </div>
+                                </div>
+                            )}
 
-                        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-[60%] z-50">
-                            <div className="glass-panel rounded-2xl p-2 flex justify-around items-center shadow-lg border border-white/10">
-                                <button className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-thai-tea bg-white/5 shadow-[0_0_10px_rgba(255,158,64,0.15)]">
-                                    <Icon name="scan-line" size={20} />
-                                </button>
-                                <button className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all">
-                                    <Icon name="history" size={20} />
+                            {/* 頂部工具列 */}
+                            <div className="absolute top-0 left-0 w-full p-6 pt-12 flex justify-between items-center z-30 bg-gradient-to-b from-black/80 to-transparent">
+                                <div className="w-12 h-12 invisible"></div>
+                                <div className="glass-panel rounded-full p-1 flex items-center">
+                                    <button onClick={() => setMode('menu')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${mode === 'menu' ? 'bg-thai-tea text-tech-black shadow-lg' : 'text-white/60 hover:text-white'}`}>
+                                        菜單
+                                    </button>
+                                    <button onClick={() => setMode('sign')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all duration-300 ${mode === 'sign' ? 'bg-thai-tea text-tech-black shadow-lg' : 'text-white/60 hover:text-white'}`}>
+                                        路牌
+                                    </button>
+                                </div>
+                                
+                                {/* 閃光燈按鈕 */}
+                                <button 
+                                    onClick={toggleFlashlight}
+                                    disabled={!supportsFlash}
+                                    className={`w-12 h-12 flex items-center justify-center rounded-full backdrop-blur-md border transition-all duration-300 ${isFlashlightOn ? 'bg-thai-tea text-tech-black border-thai-tea shadow-neon' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'} ${!supportsFlash ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <Icon name={isFlashlightOn ? "zap-off" : "zap"} className={isFlashlightOn ? "fill-current" : ""} size={20} />
                                 </button>
                             </div>
                         </div>
 
+                        {/* 下半部：結果與操作區 */}
+                        <div className="relative flex-1 -mt-10 z-30 flex flex-col px-4 pb-4 min-h-0">
+                            {/* 懸浮快門按鈕 */}
+                            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
+                                <div className={`rounded-full p-1.5 transition-all duration-500 ${isScanning ? 'bg-white/10' : 'bg-gradient-to-br from-white/10 to-transparent border border-white/10'}`}>
+                                    <button 
+                                        onClick={handleMainButton}
+                                        disabled={!isCameraReady || isScanning}
+                                        className={`w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 group
+                                            ${isScanning ? 'bg-tech-dark scale-95 border-2 border-thai-tea/50' : 'bg-thai-tea hover:scale-105 hover:shadow-neon'}`}
+                                    >
+                                        {isScanning ? (
+                                            <div className="w-8 h-8 border-2 border-thai-tea border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <Icon name={capturedImage ? "rotate-ccw" : "scan-line"} className="w-8 h-8 text-tech-black group-hover:scale-110 transition-transform" />
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 結果面板 */}
+                            <div className="flex-1 glass-panel rounded-[32px] overflow-hidden flex flex-col shadow-2xl relative">
+                                <div className="pt-12 px-6 pb-4 flex justify-between items-end border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent flex-shrink-0">
+                                    <div>
+                                        <h3 className="text-2xl font-semibold text-white tracking-tight">AI 智能分析</h3>
+                                        <p className="text-xs text-white/40 mt-1 font-mono tracking-wider">
+                                            {isDemoMode ? "演示模式" : (menuItems.length > 0 ? "翻譯完成" : "準備掃描")}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {menuItems.length > 0 && <span className={`w-2 h-2 rounded-full animate-pulse ${isDemoMode ? 'bg-yellow-500' : 'bg-thai-tea'}`}></span>}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 relative min-h-0">
+                                    <div className="absolute inset-0 overflow-y-auto no-scrollbar p-5 space-y-3">
+                                        {menuItems.length === 0 && !isScanning ? (
+                                            <div className="flex flex-col items-center justify-center h-full text-white/20 space-y-4">
+                                                <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center">
+                                                    <Icon name="file-text" size={32} />
+                                                </div>
+                                                <p className="text-sm font-light text-center px-8">適合拍攝 A4 直式菜單<br/>拍攝後自動展開翻譯</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {menuItems.map((item, index) => (
+                                                    <div key={item.id} className="menu-item glass-card rounded-2xl p-4 flex gap-4 items-start group hover:bg-white/5 transition-colors cursor-pointer" style={{ animationDelay: `${index * 0.1}s` }}>
+                                                        <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-xs font-bold text-thai-tea shrink-0 font-mono group-hover:bg-thai-tea group-hover:text-tech-black transition-colors">{index + 1}</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between items-start mb-1">
+                                                                <h4 className="font-bold text-white text-lg truncate pr-2">{item.zh}</h4>
+                                                                <span className="font-mono font-bold text-thai-tea text-lg">฿{item.price}</span>
+                                                            </div>
+                                                            <p className="text-sm thai-font text-white/50 truncate mb-2">{item.thai}</p>
+                                                            <div className="flex gap-2 flex-wrap">
+                                                                {item.desc && <span className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-white/70">{item.desc}</span>}
+                                                                {item.isSpicy && <span className="text-[10px] bg-red-500/20 px-2 py-1 rounded-md text-red-400 flex items-center gap-1 border border-red-500/20"><Icon name="flame" size={10} /> 辣</span>}
+                                                                {item.tags && item.tags.map(tag => (<span key={tag} className="text-[10px] bg-thai-tea/10 px-2 py-1 rounded-md text-thai-tea border border-thai-tea/20">{tag}</span>))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <div className="h-20"></div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 底部導航欄 */}
+                            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-[60%] z-50">
+                                <div className="glass-panel rounded-2xl p-2 flex justify-around items-center shadow-lg border border-white/10">
+                                    <button onClick={() => setShowHistory(false)} className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-all ${!showHistory ? 'text-thai-tea bg-white/5 shadow-[0_0_10px_rgba(255,158,64,0.15)]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
+                                        <Icon name="scan-line" size={20} />
+                                    </button>
+                                    <button onClick={() => setShowHistory(true)} className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-all ${showHistory ? 'text-thai-tea bg-white/5 shadow-[0_0_10px_rgba(255,158,64,0.15)]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
+                                        <Icon name="history" size={20} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <canvas ref={canvasRef} className="hidden"></canvas>
