@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "ThaiLingo Translation App with Gemini AI",
   "main": "api/analyze.js",
+  "type": "module",
   "dependencies": {
     "@google/generative-ai": "^0.21.0"
   },
