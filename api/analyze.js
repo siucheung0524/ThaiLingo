@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     
     // --- 修改處：改用 Gemini 2.5 Flash Lite ---
     // 這款模型專為低延遲、低成本設計，非常適合即時影像分析
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite-preview-02-05"; 
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite"; 
     
     const model = genAI.getGenerativeModel({ model: modelName });
 
