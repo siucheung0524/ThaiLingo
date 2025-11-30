@@ -37,10 +37,7 @@ export default async function handler(req, res) {
     const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite"; 
     
     const model = genAI.getGenerativeModel({ 
-        model: modelName,
-        generationConfig: { responseMimeType: "application/json" }
-    });
-
+    // 4. 設定 Prompt
     let prompt = "";
     let contentParts = [];
 
@@ -52,7 +49,7 @@ export default async function handler(req, res) {
           任務要求：
           1. 翻譯成通順的繁體中文 (Traditional Chinese)。
           2. 提供羅馬拼音 (RTGS 系統) 方便發音。
-          3. 如果文字包含多個項目（如菜單列表），請拆分為多個項目；如果是長句，則作為一個項目。
+          3. 【安全警示】請分析這段文字是否描述了含有「甲殼類海鮮」（如蝦、蟹、龍蝦、貝類）的食物。這對過敏者至關重要。如果是，請設定 containsShellfish: true。
           4. 嚴格輸出純 JSON 格式。
           
           JSON 結構：
@@ -63,6 +60,7 @@ export default async function handler(req, res) {
                 "thai": "泰文原文",
                 "roman": "羅馬拼音",
                 "zh": "繁體中文翻譯",
+                "containsShellfish": true, // 若含有甲殼類
                 "category": "文字翻譯"
               }
             ]
@@ -84,7 +82,8 @@ export default async function handler(req, res) {
           2. 翻譯成繁體中文 (Traditional Chinese)。
           3. 如果是菜單，請提取價格。
           4. 如果有辣椒圖示或紅色標記，請標記為辣 (isSpicy: true)。
-          5. 嚴格輸出純 JSON 格式。
+          5. 【安全警示】請根據菜名或圖片內容，判斷該菜色是否可能含有「甲殼類海鮮」（如蝦、蟹、貝類、蝦米等）。這對過敏者至關重要。若有嫌疑請設定 containsShellfish: true。
+          6. 嚴格輸出純 JSON 格式。
           
           JSON 結構：
           {
@@ -96,6 +95,7 @@ export default async function handler(req, res) {
                 "price": "100",
                 "desc": "簡短的菜色描述",
                 "isSpicy": true,
+                "containsShellfish": true, // 若含有甲殼類
                 "tags": ["推薦"]
               }
             ]
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
         `;
 
         if (mode === 'general') {
-            prompt = `識別路牌或標示上的泰文，翻譯成繁體中文。輸出純 JSON: {"items": [{"id": 1, "thai": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "tags": []}]}`;
+            prompt = `識別路牌或標示上的泰文，翻譯成繁體中文。輸出純 JSON: {"items": [{"id": 1, "thai": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "containsShellfish": false, "tags": []}]}`;
         }
 
         contentParts = [
