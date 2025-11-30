@@ -20,44 +20,73 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { image, text, mode } = req.body;
+
+    if (!image && !text) {
+      return res.status(400).json({ error: 'No content provided' });
+    }
+
+    // --- 分支 A: 純文字輸入 (優先嘗試 NLLB-200) ---
+    if (text) {
+        // 檢查是否有設定 Hugging Face API Key
+        const hfApiKey = process.env.HF_API_KEY;
+
+        if (hfApiKey) {
+            try {
+                console.log("Using NLLB-200 for text translation...");
+                const translation = await translateWithNLLB(text, hfApiKey);
+                
+                // 手動組裝符合前端需求的 JSON 結構
+                const responseData = {
+                    items: [
+                        {
+                            id: Date.now(),
+                            thai: text,
+                            zh: translation,
+                            roman: "", // 前端會自動生成
+                            category: "NLLB 翻譯", // 標記來源
+                            containsShellfish: false // NLLB 無法判斷過敏原，預設 false
+                        }
+                    ]
+                };
+                return res.status(200).json(responseData);
+            } catch (hfError) {
+                console.error("NLLB Translation Failed, falling back to Gemini:", hfError);
+                // 如果 NLLB 失敗，繼續往下走，使用 Gemini 作為備案
+            }
+        } else {
+            console.log("HF_API_KEY not found, using Gemini for text translation.");
+        }
+    }
+
+    // --- 分支 B: Gemini AI (處理圖片 或 NLLB 失敗/未設定時的文字) ---
+    
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.error("Error: GEMINI_API_KEY is missing.");
       return res.status(500).json({ error: 'Configuration Error', details: 'API Key missing.' });
     }
 
-    // 接收 image 或 text
-    const { image, text, mode } = req.body;
-    
-    if (!image && !text) {
-      return res.status(400).json({ error: 'No content provided' });
-    }
-
     const genAI = new GoogleGenerativeAI(apiKey);
-    // 修改模型為 gemini-2.0-flash-lite
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite"; 
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
     
     const model = genAI.getGenerativeModel({ 
         model: modelName,
-        // 強制設定 generationConfig 以確保 JSON 輸出
-        generationConfig: {
-            responseMimeType: "application/json"
-        }
+        generationConfig: { responseMimeType: "application/json" }
     });
 
-    // 4. 設定 Prompt
     let prompt = "";
     let contentParts = [];
 
-    // --- 分支 A: 純文字翻譯模式 ---
     if (text) {
+        // 純文字模式 (Gemini)
         prompt = `
           你是一個專業的泰語翻譯助手。請翻譯使用者提供的泰文文字。
           
           任務要求：
           1. 翻譯成通順的繁體中文 (Traditional Chinese)。
-          2. 提供羅馬拼音 (RTGS 系統) 方便發音。
-          3. 【安全警示】請分析這段文字是否描述了含有「甲殼類海鮮」（如蝦、蟹、龍蝦、貝類）的食物。這對過敏者至關重要。如果是，請設定 containsShellfish: true。
+          2. 提供羅馬拼音 (RTGS 系統)。
+          3. 【安全警示】若文字描述了含有「甲殼類海鮮」的食物，請設定 containsShellfish: true。
           4. 嚴格輸出純 JSON 格式。
           
           JSON 結構：
@@ -68,7 +97,7 @@ export default async function handler(req, res) {
                 "thai": "泰文原文",
                 "roman": "羅馬拼音",
                 "zh": "繁體中文翻譯",
-                "containsShellfish": true, // 若含有甲殼類
+                "containsShellfish": true,
                 "category": "文字翻譯"
               }
             ]
@@ -78,19 +107,17 @@ export default async function handler(req, res) {
           "${text}"
         `;
         contentParts = [{ text: prompt }];
-    } 
-    // --- 分支 B: 圖片分析模式 ---
-    else {
+    } else {
+        // 圖片模式
         prompt = `
-          你是一個專業的泰語翻譯助手，專門幫助旅客翻譯菜單或路牌。
-          請分析這張圖片。
+          你是一個專業的泰語翻譯助手。請分析這張圖片。
           
           任務要求：
           1. 識別圖中所有的泰文內容。
           2. 翻譯成繁體中文 (Traditional Chinese)。
-          3. 如果是菜單，請提取價格。
-          4. 如果有辣椒圖示或紅色標記，請標記為辣 (isSpicy: true)。
-          5. 【安全警示】請根據菜名或圖片內容，判斷該菜色是否可能含有「甲殼類海鮮」（如蝦、蟹、貝類、蝦米等）。這對過敏者至關重要。若有嫌疑請設定 containsShellfish: true。
+          3. 提取價格。
+          4. 標記辣度 (isSpicy: true/false)。
+          5. 【安全警示】若菜色可能含有「甲殼類海鮮」，請設定 containsShellfish: true。
           6. 嚴格輸出純 JSON 格式。
           
           JSON 結構：
@@ -101,9 +128,9 @@ export default async function handler(req, res) {
                 "thai": "泰文原文",
                 "zh": "繁體中文翻譯",
                 "price": "100",
-                "desc": "簡短的菜色描述",
+                "desc": "簡短描述",
                 "isSpicy": true,
-                "containsShellfish": true, // 若含有甲殼類
+                "containsShellfish": true,
                 "tags": ["推薦"]
               }
             ]
@@ -127,7 +154,6 @@ export default async function handler(req, res) {
     const response = await result.response;
     let responseText = response.text();
     
-    // 清理 JSON
     if (responseText.includes("```")) {
         responseText = responseText.replace(/```json/g, '').replace(/```/g, '');
     }
@@ -150,4 +176,38 @@ export default async function handler(req, res) {
     console.error("Server Error:", error);
     res.status(500).json({ error: 'Processing Failed', details: error.message });
   }
+}
+
+// --- 輔助函數：呼叫 Hugging Face NLLB-200 ---
+async function translateWithNLLB(text, apiKey) {
+    // 使用 facebook/nllb-200-distilled-600M 模型，速度快且效果不錯
+    const response = await fetch(
+        "[https://api-inference.huggingface.co/models/facebook/nllb-200-distilled-600M](https://api-inference.huggingface.co/models/facebook/nllb-200-distilled-600M)",
+        {
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            method: "POST",
+            body: JSON.stringify({
+                inputs: text,
+                parameters: {
+                    src_lang: "tha_Thai", // NLLB 的泰文代碼
+                    tgt_lang: "zho_Hant"  // NLLB 的繁體中文代碼
+                }
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`HF API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    // Hugging Face Inference API 回傳格式通常為: [{ "translation_text": "..." }]
+    if (Array.isArray(result) && result[0]?.translation_text) {
+        return result[0].translation_text;
+    } else {
+        throw new Error("Unexpected HF response format");
+    }
 }
