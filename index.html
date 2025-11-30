@@ -150,6 +150,15 @@
             0% { transform: scale(0.8); opacity: 1; }
             100% { transform: scale(2); opacity: 0; }
         }
+        .ripple-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 158, 64, 0.4);
+            width: 100px;
+            height: 100px;
+            pointer-events: none;
+            animation: ripple 0.6s linear;
+        }
     </style>
 </head>
 <body>
@@ -193,10 +202,16 @@
             return result.replace(/undefined/g, ''); 
         };
 
+        // 更新 Mock Data，加入 containsShellfish 屬性
         const MOCK_GEMINI_RESPONSE = [
-            { id: 1, thai: "ต้มยำกุ้งน้ำข้น", roman: "Tom Yum Kung Nam Khon", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, tags: ["推薦", "熱門"] },
-            { id: 2, thai: "ผัดไทยกุ้งสด", roman: "Pad Thai Kung Sod", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, tags: ["不辣"] },
-            { id: 3, thai: "ส้มตำไทย", roman: "Som Tum Thai", zh: "泰式青木瓜沙拉", price: "80", desc: "清爽開胃，含花生", isSpicy: true, tags: [] },
+            { id: 1, thai: "ต้มยำกุ้งน้ำข้น", roman: "Tom Yum Kung Nam Khon", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, containsShellfish: true, tags: ["推薦", "熱門"] },
+            { id: 2, thai: "ผัดไทยกุ้งสด", roman: "Pad Thai Kung Sod", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, containsShellfish: true, tags: ["不辣"] },
+            { id: 3, thai: "ส้มตำไทย", roman: "Som Tum Thai", zh: "泰式青木瓜沙拉", price: "80", desc: "清爽開胃，含花生", isSpicy: true, containsShellfish: true, tags: [] }, // 通常含蝦米
+            { id: 4, thai: "ข้าวผัดปู", roman: "Khao Pad Pu", zh: "蟹肉炒飯", price: "150", desc: "大火快炒，鍋氣十足", isSpicy: false, containsShellfish: true, tags: [] },
+            { id: 5, thai: "ปลากะพงทอดน้ำปลา", roman: "Pla Kapong Tod Nam Pla", zh: "炸鱸魚佐魚露", price: "450", desc: "整條鱸魚酥炸", isSpicy: false, containsShellfish: false, tags: ["大份"] },
+            { id: 6, thai: "น้ำแตงโมปั่น", roman: "Nam Tangmo Pan", zh: "西瓜冰沙", price: "60", desc: "解辣神器", isSpicy: false, containsShellfish: false, tags: [] },
+            { id: 7, thai: "คอหมูย่าง", roman: "Kor Moo Yang", zh: "炭烤豬頸肉", price: "120", desc: "外焦裡嫩，配特製醬", isSpicy: false, containsShellfish: false, tags: ["必點"] },
+            { id: 8, thai: "ลาบหมู", roman: "Larb Moo", zh: "泰北涼拌豬肉", price: "90", desc: "香料味重，口感豐富", isSpicy: true, containsShellfish: false, tags: [] },
         ];
 
         const MOCK_GENERAL_RESPONSE = [
@@ -245,10 +260,11 @@
             const [isFlashlightOn, setIsFlashlightOn] = useState(false);
             const [layoutMode, setLayoutMode] = useState('scan'); 
             const [playingId, setPlayingId] = useState(null);
-            
-            // 新增：文字輸入狀態
             const [showTextInput, setShowTextInput] = useState(false);
             const [inputText, setInputText] = useState("");
+            
+            // 新增：複製狀態 (儲存剛複製過的項目 ID)
+            const [copiedId, setCopiedId] = useState(null);
 
             useEffect(() => {
                 startCamera();
@@ -323,8 +339,11 @@
                 }
             };
 
+            // 之前遺漏的函數，現在補上
             const handleUploadClick = () => {
-                if (fileInputRef.current) fileInputRef.current.click();
+                if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                }
             };
 
             const handleFileChange = (e) => {
@@ -346,7 +365,6 @@
                 if (!inputText.trim()) return;
                 setShowTextInput(false);
                 startProcessing('正在翻譯文字...');
-                // 這裡我們不設定 capturedImage，保持相機背景或黑屏，或者可以給個預設圖
                 setLayoutMode('result');
                 await callBackendApi({ text: inputText });
                 finishProcessing();
@@ -504,9 +522,39 @@
                 window.speechSynthesis.speak(utterance);
             };
 
+            // 複製功能函數
+            const copyToClipboard = (item, e) => {
+                e.stopPropagation(); 
+                
+                let textToCopy = "";
+                if (mode === 'menu') {
+                    // 加入甲殼類警示文字
+                    const spicyText = item.isSpicy ? '(辣)' : '';
+                    const allergyText = item.containsShellfish ? '[含甲殼類]' : '';
+                    textToCopy = `${item.zh} ${spicyText} ${allergyText} ${item.thai} ${item.price}`;
+                } else {
+                    textToCopy = `${item.zh} ${item.thai}`;
+                }
+
+                const textarea = document.createElement("textarea");
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand("copy");
+                    setCopiedId(item.id);
+                    setTimeout(() => setCopiedId(null), 1500);
+                } catch (err) {
+                    console.error("Copy failed", err);
+                    alert("複製失敗，請手動選取文字。");
+                }
+                document.body.removeChild(textarea);
+            };
+
             return (
                 <div className="flex flex-col h-screen w-full bg-tech-black text-white relative tech-grid font-sans overflow-hidden">
                     
+                    {/* 背景光暈裝飾 */}
                     <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[100px] pointer-events-none"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-thai-tea/10 rounded-full blur-[100px] pointer-events-none"></div>
 
@@ -540,7 +588,7 @@
                         </div>
                     )}
 
-                    {/* 歷史頁面 */}
+                    {/* 歷史頁面更新：加入甲殼類標示 */}
                     {showHistory && (
                         <div className="absolute inset-0 z-50 bg-tech-black/95 backdrop-blur-md flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-300">
                             <div className="p-6 pt-12 pb-4 border-b border-white/10 bg-gradient-to-b from-thai-tea/10 to-transparent flex items-center gap-4">
@@ -578,6 +626,9 @@
                                                         <div key={idx} className="text-sm text-white/90 truncate flex items-center gap-2">
                                                             <div className="w-1 h-1 rounded-full bg-white/30"></div>
                                                             {item.zh}
+                                                            {item.containsShellfish && (
+                                                                <span className="w-2 h-2 rounded-full bg-yellow-500" title="含甲殼類"></span>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -596,7 +647,6 @@
                             {capturedImage && (
                                 <img src={capturedImage} className="absolute inset-0 w-full h-full object-cover z-10 animate-pulse-once" alt="Captured" />
                             )}
-                            {/* 純文字模式背景 */}
                             {!capturedImage && menuItems.length > 0 && !isScanning && (
                                 <div className="absolute inset-0 bg-tech-dark flex items-center justify-center">
                                     <div className="text-white/20 flex flex-col items-center">
@@ -697,7 +747,6 @@
                                     </button>
                                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
 
-                                    {/* 只有在其他模式下才顯示文字輸入按鈕 */}
                                     {mode === 'general' && (
                                         <button 
                                             onClick={() => setShowTextInput(true)}
@@ -779,7 +828,7 @@
                                                             style={{ animationDelay: `${index * 0.1}s` }}
                                                         >
                                                             <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-xs font-bold text-thai-tea shrink-0 font-mono group-hover:bg-thai-tea group-hover:text-tech-black transition-colors">{index + 1}</div>
-                                                            <div className="flex-1 min-w-0">
+                                                            <div className="flex-1 min-w-0 relative">
                                                                 <div className="flex justify-between items-start mb-1">
                                                                     <h4 className="font-bold text-white text-lg truncate pr-2">{item.zh}</h4>
                                                                     <span className="font-mono font-bold text-thai-tea text-lg">฿{item.price}</span>
@@ -793,9 +842,23 @@
                                                                 </div>
                                                                 <div className="flex gap-2 flex-wrap">
                                                                     {item.desc && <span className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-white/70">{item.desc}</span>}
+                                                                    
+                                                                    {item.containsShellfish && (
+                                                                        <span className="text-[10px] bg-yellow-500/20 px-2 py-1 rounded-md text-yellow-400 flex items-center gap-1 border border-yellow-500/20 font-bold">
+                                                                            <Icon name="alert-triangle" size={10} /> 甲殼類
+                                                                        </span>
+                                                                    )}
+
                                                                     {item.isSpicy && <span className="text-[10px] bg-red-500/20 px-2 py-1 rounded-md text-red-400 flex items-center gap-1 border border-red-500/20"><Icon name="flame" size={10} /> 辣</span>}
                                                                     {item.tags && item.tags.map(tag => (<span key={tag} className="text-[10px] bg-thai-tea/10 px-2 py-1 rounded-md text-thai-tea border border-thai-tea/20">{tag}</span>))}
                                                                 </div>
+                                                                
+                                                                <button 
+                                                                    onClick={(e) => copyToClipboard(item, e)}
+                                                                    className="absolute bottom-0 right-0 p-1.5 rounded-lg bg-white/5 text-white/40 hover:text-white hover:bg-thai-tea hover:shadow-neon transition-all z-10"
+                                                                >
+                                                                    <Icon name={copiedId === item.id ? "check" : "copy"} size={16} />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -808,13 +871,21 @@
                                                             {item.category && (
                                                                 <span className="self-start text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/60 mb-1">{item.category}</span>
                                                             )}
-                                                            <div className="flex justify-between items-start">
+                                                            <div className="flex justify-between items-start relative">
                                                                 <h4 className="font-bold text-white text-lg leading-snug">{item.zh}</h4>
                                                                 <Icon name="volume-2" size={18} className={`transition-colors mt-1 shrink-0 ${playingId === item.id ? 'text-thai-tea animate-pulse' : 'text-white/30 group-hover:text-white/70'}`} />
+                                                                
                                                             </div>
-                                                            <div className="border-t border-white/5 pt-2 mt-1">
+                                                            <div className="border-t border-white/5 pt-2 mt-1 relative">
                                                                 <p className="text-sm thai-font text-white/80">{item.thai}</p>
                                                                 <p className="text-xs text-thai-tea/80 font-medium mt-1">{item.roman}</p>
+                                                                
+                                                                <button 
+                                                                    onClick={(e) => copyToClipboard(item, e)}
+                                                                    className="absolute bottom-0 right-0 p-1.5 rounded-lg bg-white/5 text-white/40 hover:text-white hover:bg-thai-tea hover:shadow-neon transition-all z-10"
+                                                                >
+                                                                    <Icon name={copiedId === item.id ? "check" : "copy"} size={16} />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     )
