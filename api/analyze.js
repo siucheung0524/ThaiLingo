@@ -34,9 +34,17 @@ export default async function handler(req, res) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
+    // 修改模型為 gemini-2.0-flash-lite
     const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite"; 
     
     const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        // 強制設定 generationConfig 以確保 JSON 輸出
+        generationConfig: {
+            responseMimeType: "application/json"
+        }
+    });
+
     // 4. 設定 Prompt
     let prompt = "";
     let contentParts = [];
