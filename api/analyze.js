@@ -20,49 +20,67 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, text, mode } = req.body;
+    const { image, text, mode, sourceLang } = req.body;
 
     if (!image && !text) {
       return res.status(400).json({ error: 'No content provided' });
     }
 
-    // --- 分支 A: 純文字輸入 (優先嘗試 Google Apps Script) ---
+    // ============================================================
+    // 分支 A: 純文字輸入 (優先嘗試 Google Apps Script 免費翻譯)
+    // ============================================================
     if (text) {
-        // 從環境變數讀取 GAS URL
         const gasApiUrl = process.env.GAS_API_URL;
 
         if (gasApiUrl) {
             try {
                 console.log("Attempting Google Apps Script translation...");
                 
-                const translation = await translateWithGAS(text, gasApiUrl);
+                // 設定語言方向
+                // 如果來源是中文(zh)，目標就是泰文(th)
+                // 如果來源是泰文(th)，目標就是繁體中文(zh-TW)
+                const srcLangCode = sourceLang === 'zh' ? 'zh-TW' : 'th';
+                const tgtLangCode = sourceLang === 'zh' ? 'th' : 'zh-TW';
+
+                const translation = await translateWithGAS(text, gasApiUrl, srcLangCode, tgtLangCode);
                 
-                // 本地過敏原關鍵字偵測
-                const shellfishKeywords = ['กุ้ง', 'ปู', 'หอย', 'กั้ง', 'ล็อบสเตอร์'];
-                const hasShellfish = shellfishKeywords.some(keyword => text.includes(keyword));
+                // 組裝回傳資料
+                let item = {
+                    id: Date.now(),
+                    roman: "", // 前端會自動生成羅馬拼音
+                    category: "來源: Google Translate (GAS)", 
+                    containsShellfish: false
+                };
+
+                if (sourceLang === 'zh') {
+                    // 中 -> 泰
+                    item.zh = text;
+                    item.thai = translation;
+                } else {
+                    // 泰 -> 中
+                    item.thai = text;
+                    item.zh = translation;
+                    
+                    // 簡單的本地關鍵字偵測 (甲殼類)
+                    const shellfishKeywords = ['กุ้ง', 'ปู', 'หอย', 'กั้ง', 'ล็อบสเตอร์'];
+                    item.containsShellfish = shellfishKeywords.some(k => text.includes(k));
+                }
 
                 const responseData = {
-                    items: [
-                        {
-                            id: Date.now(),
-                            thai: text,
-                            zh: translation,
-                            roman: "", // 前端會自動補上拼音
-                            category: "來源: Google Translate (GAS)", 
-                            containsShellfish: hasShellfish
-                        }
-                    ]
+                    items: [item]
                 };
                 return res.status(200).json(responseData);
 
             } catch (gasError) {
                 console.warn("GAS Failed, falling back to Gemini:", gasError.message);
-                // 失敗後自動往下執行 Gemini 邏輯
+                // 若 GAS 失敗，程式會繼續往下執行，使用 Gemini
             }
         }
     }
 
-    // --- 分支 B: Gemini AI (圖片模式 或 GAS 失敗後的文字模式) ---
+    // ============================================================
+    // 分支 B: Gemini AI (處理圖片 或 GAS 失敗後的文字)
+    // ============================================================
     
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -82,33 +100,57 @@ export default async function handler(req, res) {
     let contentParts = [];
 
     if (text) {
-        // 純文字模式 (Gemini Fallback)
-        prompt = `
-          你是一個專業的泰語翻譯助手。請翻譯使用者提供的泰文文字。
-          
-          任務：
-          1. 翻譯成繁體中文。
-          3. 判斷是否含甲殼類 (containsShellfish)。
-          4. 輸出 JSON。
-          
-          JSON 結構：
-          {
-            "items": [
+        if (sourceLang === 'zh') {
+            // 中 -> 泰
+            prompt = `
+              你是一個專業的中泰翻譯助手。請將以下【中文】文字翻譯成【泰文】。
+              
+              任務要求：
+              1. 將中文翻譯成自然的泰文。
+              2. 嚴格輸出純 JSON 格式。
+              
+              JSON 結構：
               {
-                "id": 1,
-                "thai": "${text}",
-                "zh": "翻譯結果",
-                "containsShellfish": false,
-                "category": "來源: Google Gemini"
+                "items": [
+                  {
+                    "id": 1,
+                    "zh": "${text}",
+                    "thai": "泰文翻譯結果",
+                    "category": "中翻泰 (Gemini)"
+                  }
+                ]
               }
-            ]
-          }
-        `;
+            `;
+        } else {
+            // 泰 -> 中
+            prompt = `
+              你是一個專業的泰語翻譯助手。請翻譯使用者提供的【泰文】文字。
+              
+              任務要求：
+              1. 翻譯成通順的繁體中文 (Traditional Chinese)。
+              2. 【安全警示】請分析這段文字是否描述了含有「甲殼類海鮮」的食物，若是請設定 containsShellfish: true。
+              3. 嚴格輸出純 JSON 格式。
+              
+              JSON 結構：
+              {
+                "items": [
+                  {
+                    "id": 1,
+                    "thai": "${text}",
+                    "roman": "泰文羅馬拼音",
+                    "zh": "繁體中文翻譯",
+                    "containsShellfish": false,
+                    "category": "泰翻中 (Gemini)"
+                  }
+                ]
+              }
+            `;
+        }
         contentParts = [{ text: prompt }];
     } else {
-        // 圖片模式
+        // 圖片模式 (維持不變)
         prompt = `
-          你是一個專業的泰語翻譯助手。分析這張圖片。
+          你是一個專業的泰語翻譯助手。請分析這張圖片。
           識別泰文、翻譯成繁體中文、提取價格、標記辣度(isSpicy)。
           若含有蝦蟹貝類請設定 containsShellfish: true。
           嚴格輸出純 JSON。
@@ -130,9 +172,9 @@ export default async function handler(req, res) {
             ]
           }
         `;
-        
+
         if (mode === 'general') {
-             prompt = `識別圖片中的泰文，翻譯成繁體中文。輸出 JSON: {"items": [{"id": 1, "thai": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "containsShellfish": false, "category": "AI 視覺分析", "tags": []}]}`;
+            prompt = `識別路牌或標示上的泰文，翻譯成繁體中文。輸出純 JSON: {"items": [{"id": 1, "thai": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "containsShellfish": false, "category": "AI 視覺分析", "tags": []}]}`;
         }
 
         contentParts = [
@@ -148,6 +190,7 @@ export default async function handler(req, res) {
     const response = await result.response;
     let responseText = response.text();
     
+    // 清理 JSON
     if (responseText.includes("```")) {
         responseText = responseText.replace(/```json/g, '').replace(/```/g, '');
     }
@@ -173,12 +216,19 @@ export default async function handler(req, res) {
 }
 
 // --- 輔助函數：呼叫 Google Apps Script ---
-async function translateWithGAS(text, gasUrl) {
-    // Google Apps Script 在 POST 時需要 follow redirect
+async function translateWithGAS(text, gasUrl, sourceLang, targetLang) {
+    // GAS 需要支援 POST 並解析 JSON body
     const response = await fetch(gasUrl, {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" }, // GAS 特性：有時用 text/plain 比較穩
-        body: JSON.stringify({ text: text }),
+        // 使用 no-cors 模式可能會導致無法讀取回應，GAS 必須部署為 Web App 且權限為 "Anyone"
+        // 這裡使用標準 fetch，GAS 那邊必須正確處理 OPTIONS 請求或單純接收 POST
+        // 但為了避免 CORS 問題，最簡單的方式是讓 Vercel 後端 (Serverless) 去打 GAS，這就不會有 CORS 問題
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+        body: JSON.stringify({ 
+            text: text,
+            source: sourceLang,
+            target: targetLang
+        }),
         redirect: "follow" 
     });
 
