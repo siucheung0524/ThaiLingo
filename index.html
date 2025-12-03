@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
+   <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
 <link rel="manifest" href="/site.webmanifest">
@@ -55,14 +55,12 @@
             font-family: 'Noto Sans Thai', sans-serif;
         }
 
-        /* 科技感網格背景 */
         .tech-grid {
             background-size: 40px 40px;
             background-image: linear-gradient(to right, rgba(255, 158, 64, 0.03) 1px, transparent 1px),
                               linear-gradient(to bottom, rgba(255, 158, 64, 0.03) 1px, transparent 1px);
         }
 
-        /* 掃描線動畫 */
         .scan-line {
             position: absolute;
             width: 100%;
@@ -89,7 +87,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 卡片進場動畫 */
         .menu-item {
             animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             opacity: 0;
@@ -99,7 +96,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 玻璃擬態 */
         .glass-panel {
             background: rgba(18, 11, 8, 0.85);
             backdrop-filter: blur(20px);
@@ -113,7 +109,6 @@
             backdrop-filter: blur(10px);
         }
 
-        /* Range Slider */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -143,21 +138,6 @@
         
         input[type=range]:focus {
             outline: none;
-        }
-        
-        /* 點擊波紋效果 */
-        @keyframes ripple {
-            0% { transform: scale(0.8); opacity: 1; }
-            100% { transform: scale(2); opacity: 0; }
-        }
-        .ripple-effect {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 158, 64, 0.4);
-            width: 100px;
-            height: 100px;
-            pointer-events: none;
-            animation: ripple 0.6s linear;
         }
     </style>
 </head>
@@ -203,20 +183,13 @@
         };
 
         const MOCK_GEMINI_RESPONSE = [
-            { id: 1, thai: "ต้มยำกุ้งน้ำข้น", roman: "Tom Yum Kung Nam Khon", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, containsShellfish: true, tags: ["推薦", "熱門"] },
-            { id: 2, thai: "ผัดไทยกุ้งสด", roman: "Pad Thai Kung Sod", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, containsShellfish: true, tags: ["不辣"] },
-            { id: 3, thai: "ส้มตำไทย", roman: "Som Tum Thai", zh: "泰式青木瓜沙拉", price: "80", desc: "清爽開胃，含花生", isSpicy: true, containsShellfish: true, tags: [] }, // 通常含蝦米
-            { id: 4, thai: "ข้าวผัดปู", roman: "Khao Pad Pu", zh: "蟹肉炒飯", price: "150", desc: "大火快炒，鍋氣十足", isSpicy: false, containsShellfish: true, tags: [] },
-            { id: 5, thai: "ปลากะพงทอดน้ำปลา", roman: "Pla Kapong Tod Nam Pla", zh: "炸鱸魚佐魚露", price: "450", desc: "整條鱸魚酥炸", isSpicy: false, containsShellfish: false, tags: ["大份"] },
-            { id: 6, thai: "น้ำแตงโมปั่น", roman: "Nam Tangmo Pan", zh: "西瓜冰沙", price: "60", desc: "解辣神器", isSpicy: false, containsShellfish: false, tags: [] },
-            { id: 7, thai: "คอหมูย่าง", roman: "Kor Moo Yang", zh: "炭烤豬頸肉", price: "120", desc: "外焦裡嫩，配特製醬", isSpicy: false, containsShellfish: false, tags: ["必點"] },
-            { id: 8, thai: "ลาบหมู", roman: "Larb Moo", zh: "泰北涼拌豬肉", price: "90", desc: "香料味重，口感豐富", isSpicy: true, containsShellfish: false, tags: [] },
+            { id: 1, thai: "ต้มยำกุ้งน้ำข้น", roman: "Tom Yum Kung Nam Khon", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, containsShellfish: true, tags: ["推薦", "熱門"], category: "演示資料" },
+            { id: 2, thai: "ผัดไทยกุ้งสด", roman: "Pad Thai Kung Sod", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, containsShellfish: true, tags: ["不辣"], category: "演示資料" },
         ];
 
         const MOCK_GENERAL_RESPONSE = [
-            { id: 1, thai: "ทางออก", roman: "Thang Ok", zh: "出口 (Exit)", category: "標示" },
-            { id: 2, thai: "ห้องน้ำไปทางขวา", roman: "Hong Nam Pai Thang Khwa", zh: "洗手間往右邊走", category: "指示" },
-            { id: 3, thai: "ระวังพื้นลื่น", roman: "Rawang Phuen Luen", zh: "小心地滑 (Caution Wet Floor)", category: "警告" }
+            { id: 1, thai: "ทางออก", roman: "Thang Ok", zh: "出口 (Exit)", category: "演示資料" },
+            { id: 2, thai: "ห้องน้ำไปทางขวา", roman: "Hong Nam Pai Thang Khwa", zh: "洗手間往右邊走", category: "演示資料" },
         ];
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -264,7 +237,6 @@
             const [inputText, setInputText] = useState("");
             const [outputText, setOutputText] = useState("");
             const [sourceLang, setSourceLang] = useState('th'); // 'th' or 'zh'
-            
             const [copiedId, setCopiedId] = useState(null);
 
             useEffect(() => {
@@ -274,14 +246,7 @@
 
             const startCamera = async () => {
                 try {
-                    const constraints = {
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 },
-                            zoom: true 
-                        }
-                    };
+                    const constraints = { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, zoom: true } };
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
                     if (videoRef.current) {
                         videoRef.current.srcObject = stream;
@@ -292,30 +257,17 @@
                             setZoomRange({ min: capabilities.zoom.min, max: capabilities.zoom.max, step: capabilities.zoom.step });
                             const settings = track.getSettings();
                             if (settings.zoom) setZoom(settings.zoom);
-                        } else {
-                            setIsHardwareZoom(false);
-                            setZoomRange({ min: 1, max: 3, step: 0.1 });
                         }
                         if (capabilities.torch) setSupportsFlash(true);
-                        videoRef.current.onloadedmetadata = () => {
-                            videoRef.current.play();
-                            setIsCameraReady(true);
-                            setCameraError(null);
-                        };
+                        videoRef.current.onloadedmetadata = () => { videoRef.current.play(); setIsCameraReady(true); setCameraError(null); };
                     }
-                } catch (err) {
-                    console.error("Camera Error:", err);
-                    setCameraError("請允許相機權限以使用翻譯功能");
-                }
+                } catch (err) { console.error("Camera Error:", err); setCameraError("請允許相機權限以使用翻譯功能"); }
             };
-
             const stopCamera = () => {
                 if (videoRef.current && videoRef.current.srcObject) {
-                    const tracks = videoRef.current.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
+                    videoRef.current.srcObject.getTracks().forEach(track => track.stop());
                 }
             };
-
             const toggleFlashlight = async () => {
                 if (videoRef.current && videoRef.current.srcObject) {
                     const track = videoRef.current.srcObject.getVideoTracks()[0];
@@ -323,29 +275,19 @@
                         const newStatus = !isFlashlightOn;
                         await track.applyConstraints({ advanced: [{ torch: newStatus }] });
                         setIsFlashlightOn(newStatus);
-                    } catch (err) {
-                        console.error("Flashlight toggle failed:", err);
-                    }
+                    } catch (err) { console.error("Flashlight toggle failed:", err); }
                 }
             };
-
             const handleZoomChange = (e) => {
                 const newZoom = parseFloat(e.target.value);
                 setZoom(newZoom);
                 if (isHardwareZoom && videoRef.current && videoRef.current.srcObject) {
                     const track = videoRef.current.srcObject.getVideoTracks()[0];
-                    if (track) {
-                        try { track.applyConstraints({ advanced: [{ zoom: newZoom }] }); } catch (err) {}
-                    }
+                    if (track) { try { track.applyConstraints({ advanced: [{ zoom: newZoom }] }); } catch (err) {} }
                 }
             };
 
-            const handleUploadClick = () => {
-                if (fileInputRef.current) {
-                    fileInputRef.current.click();
-                }
-            };
-
+            const handleUploadClick = () => { if (fileInputRef.current) fileInputRef.current.click(); };
             const handleFileChange = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -394,29 +336,16 @@
                 finishProcessing();
             };
 
-            const startProcessing = (msg) => {
-                setIsScanning(true);
-                setMenuItems([]);
-                setProcessingStage(msg);
-                setIsDemoMode(false);
-                setLayoutMode('result');
-            };
-
-            const finishProcessing = () => {
-                setIsScanning(false);
-                setProcessingStage('');
-            };
-
+            const startProcessing = (msg) => { setIsScanning(true); setMenuItems([]); setProcessingStage(msg); setIsDemoMode(false); };
+            const finishProcessing = () => { setIsScanning(false); setProcessingStage(''); };
             const handleReset = () => {
                 setCapturedImage(null);
                 setMenuItems([]);
-                setInputText("");
+                // setInputText(""); // 保持文字輸入不被清除
                 setProcessingStage('');
                 setIsDemoMode(false);
                 setLayoutMode('scan'); 
-                if (videoRef.current) {
-                    videoRef.current.play().catch(e => console.log("Resume video error:", e));
-                }
+                if (videoRef.current) videoRef.current.play().catch(e => {});
             };
 
             const handleMainButton = () => {
@@ -431,37 +360,21 @@
             const handleCaptureAndScan = async () => {
                 const video = videoRef.current;
                 if (!video || !isCameraReady || isScanning) return;
-                if (video.videoWidth === 0 || video.videoHeight === 0) return;
-
                 startProcessing('正在優化影像...');
-                
+                setLayoutMode('result');
+
                 const canvas = canvasRef.current;
                 const MAX_WIDTH = 1024;
-                let width = video.videoWidth;
-                let height = video.videoHeight;
-                if (width > MAX_WIDTH) {
-                    height = height * (MAX_WIDTH / width);
-                    width = MAX_WIDTH;
-                }
-                width = Math.floor(width);
-                height = Math.floor(height);
-                canvas.width = width;
-                canvas.height = height;
+                let width = video.videoWidth; let height = video.videoHeight;
+                if (width > MAX_WIDTH) { height = height * (MAX_WIDTH / width); width = MAX_WIDTH; }
+                width = Math.floor(width); height = Math.floor(height);
+                canvas.width = width; canvas.height = height;
                 
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                if (!isHardwareZoom && zoom > 1) {
-                    const sWidth = video.videoWidth / zoom;
-                    const sHeight = video.videoHeight / zoom;
-                    const sx = (video.videoWidth - sWidth) / 2;
-                    const sy = (video.videoHeight - sHeight) / 2;
-                    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, width, height);
-                } else {
-                    ctx.drawImage(video, 0, 0, width, height);
-                }
+                ctx.drawImage(video, 0, 0, width, height);
                 
                 const imageData = canvas.toDataURL('image/jpeg', 0.6);
                 setCapturedImage(imageData); 
-                
                 await callBackendApi({ image: imageData });
                 finishProcessing();
             };
@@ -471,12 +384,8 @@
                 try {
                     let items = [];
                     let payload = { mode, sourceLang, targetLang };
-                    
-                    if (image) {
-                        payload.image = image.split(',')[1];
-                    } else if (text) {
-                        payload.text = text;
-                    }
+                    if (image) payload.image = image.split(',')[1];
+                    else if (text) payload.text = text;
 
                     try {
                         const response = await fetch('/api/analyze', {
@@ -484,37 +393,23 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
                         });
-
-                        // 如果後端失敗
+                        
                         if (!response.ok) {
-                            if (response.status === 404) {
-                                throw new Error("API_NOT_FOUND");
-                            }
+                            if (response.status === 404) throw new Error("API_NOT_FOUND");
                             const errorData = await response.json().catch(() => ({}));
-                            const errorMessage = errorData.details || errorData.error || `HTTP ${response.status}`;
-                            
-                            alert(`伺服器連線錯誤：\n${errorMessage}\n\n請檢查 Vercel 專案設定中的 GEMINI_API_KEY。`);
-                            setProcessingStage('');
-                            setIsScanning(false);
-                            return; 
+                            alert(`伺服器錯誤：${errorData.details || response.status}`);
+                            setProcessingStage(''); setIsScanning(false); return;
                         }
 
                         const data = await response.json();
                         items = data.items || [];
-                        setProcessingStage('AI 視覺分析中...');
                     } catch (fetchError) {
                         if (fetchError.message === "API_NOT_FOUND" || fetchError.name === 'TypeError') {
-                            console.warn("API 連線失敗，切換至演示模式:", fetchError);
-                            setProcessingStage('演示模式: 模擬 AI 分析...');
-                            setIsDemoMode(true);
-                            await new Promise(r => setTimeout(r, 1500));
-                            // 文字模式 Mock
+                            console.warn("API 連線失敗，切換至演示模式");
+                            await new Promise(r => setTimeout(r, 1000));
                             if (text) {
-                                if (sourceLang === 'th') {
-                                    items = [{ id: 1, thai: text, zh: "這是模擬的中文翻譯", roman: generateRomanization(text) }];
-                                } else {
-                                    items = [{ id: 1, zh: text, thai: "นี่คือคำแปลจำลอง", roman: "ni khue kham plae cham long" }];
-                                }
+                                if (sourceLang === 'th') items = [{ id: 1, thai: text, zh: "這是模擬的中文翻譯", roman: generateRomanization(text) }];
+                                else items = [{ id: 1, zh: text, thai: "นี่คือคำแปลจำลอง", roman: "ni khue kham plae cham long" }];
                             } else {
                                 items = mode === 'menu' ? MOCK_GEMINI_RESPONSE : MOCK_GENERAL_RESPONSE;
                             }
@@ -525,107 +420,43 @@
                     
                     const itemsWithRoman = items.map(item => ({
                         ...item,
-                        roman: item.roman || generateRomanization(item.thai)
+                        roman: item.roman || (item.thai ? generateRomanization(item.thai) : "")
                     }));
 
-                    setMenuItems(itemsWithRoman);
-                    
-                    // 更新文字模式的 Output
                     if (mode === 'text') {
                         if (itemsWithRoman.length > 0) {
-                            // 根據方向決定顯示哪個欄位
                             const resultText = sourceLang === 'th' ? itemsWithRoman[0].zh : itemsWithRoman[0].thai;
                             setOutputText(resultText);
-                            // 為了讓發音功能可用，我們還是存入 menuItems，但在 UI 上我們會用不同的方式渲染
                             setMenuItems(itemsWithRoman);
                         }
                     } else {
                         setMenuItems(itemsWithRoman);
                     }
-
-                    // 記錄歷史
-                    if (itemsWithRoman && itemsWithRoman.length > 0) {
-                        const newHistoryItem = {
+                    
+                    if (itemsWithRoman.length > 0) {
+                        setHistory(prev => [{
                             id: Date.now(),
-                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            image: image || null, // 可能是純文字，無圖片
-                            text: text || null,
+                            time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+                            image: image,
+                            text: text,
                             items: itemsWithRoman,
                             mode: mode
-                        };
-                        setHistory(prev => [newHistoryItem, ...prev]);
+                        }, ...prev]);
                     }
                 } catch (error) {
-                    console.error("Analysis Critical Failure:", error);
-                    // 如果不是前面 alert 過的錯誤，才顯示 alert
-                    if (processingStage) {
-                         alert(`系統錯誤：${error.message}`);
-                    }
-                    setProcessingStage('');
-                    setIsScanning(false);
+                    console.error("Error", error);
+                    setProcessingStage(''); setIsScanning(false);
                 }
             };
 
-            const restoreHistoryItem = (item) => {
-                setCapturedImage(item.image);
-                setInputText(item.text || "");
-                setMenuItems(item.items);
-                setMode(item.mode);
-                setShowHistory(false);
-                setIsDemoMode(false);
-                setLayoutMode('result'); 
-                
-                if(item.mode === 'text') {
-                    setMode('text');
-                    // 簡化：假設從歷史還原時預設是泰翻中，或需要從 item 中記錄語言方向
-                    setSourceLang('th'); 
-                    setOutputText(item.items[0].zh); // 簡化
-                }
-            };
-
-            const playThaiAudio = (text, id) => {
-                if (!window.speechSynthesis) {
-                    alert("您的裝置不支援發音功能");
-                    return;
-                }
+            const playThaiAudio = (text) => {
+                if (!window.speechSynthesis) return;
                 window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'th-TH'; 
-                utterance.rate = 0.9; 
-                utterance.onstart = () => setPlayingId(id);
-                utterance.onend = () => setPlayingId(null);
-                utterance.onerror = () => setPlayingId(null);
                 window.speechSynthesis.speak(utterance);
             };
 
-            // 複製功能函數
-            const copyToClipboard = (item, e) => {
-                e.stopPropagation(); 
-                
-                let textToCopy = "";
-                if (mode === 'menu') {
-                    const spicyText = item.isSpicy ? '(辣)' : '';
-                    const allergyText = item.containsShellfish ? '[含甲殼類]' : '';
-                    textToCopy = `${item.zh} ${spicyText} ${allergyText} ${item.thai} ${item.price}`;
-                } else {
-                    textToCopy = `${item.zh} ${item.thai}`;
-                }
-
-                const textarea = document.createElement("textarea");
-                textarea.value = textToCopy;
-                document.body.appendChild(textarea);
-                textarea.select();
-                try {
-                    document.execCommand("copy");
-                    setCopiedId(item.id);
-                    setTimeout(() => setCopiedId(null), 1500);
-                } catch (err) {
-                    console.error("Copy failed", err);
-                    alert("複製失敗，請手動選取文字。");
-                }
-                document.body.removeChild(textarea);
-            };
-            
             const copyText = (text) => {
                 const textarea = document.createElement("textarea");
                 textarea.value = text;
@@ -635,106 +466,90 @@
                 document.body.removeChild(textarea);
             };
 
+            const copyToClipboard = (item, e) => {
+                e.stopPropagation();
+                let textToCopy = "";
+                if (mode === 'menu') {
+                    const spicyText = item.isSpicy ? '(辣)' : '';
+                    const allergyText = item.containsShellfish ? '[含甲殼類]' : '';
+                    textToCopy = `${item.zh} ${spicyText} ${allergyText} ${item.thai} ${item.price}`;
+                } else {
+                    textToCopy = `${item.zh} ${item.thai}`;
+                }
+                copyText(textToCopy);
+                setCopiedId(item.id);
+                setTimeout(() => setCopiedId(null), 1500);
+            };
+
+            const restoreHistoryItem = (item) => {
+                setCapturedImage(item.image);
+                if(item.mode === 'text') {
+                    setMode('text');
+                    setSourceLang('th'); 
+                    setInputText(item.text);
+                    setOutputText(item.items[0].zh);
+                    setMenuItems(item.items);
+                } else {
+                    setMode(item.mode);
+                    setMenuItems(item.items);
+                    setLayoutMode('result');
+                }
+                setShowHistory(false);
+            };
+
             return (
                 <div className="flex flex-col h-screen w-full bg-tech-black text-white relative tech-grid font-sans overflow-hidden">
-                    
-                    {/* 背景光暈裝飾 */}
                     <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[100px] pointer-events-none"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-thai-tea/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-                    {/* 文字模式介面 */}
                     {mode === 'text' ? (
-                        <div className="flex-1 flex flex-col p-6 pt-12 z-30 animate-in fade-in slide-in-from-bottom-5 duration-300">
-                            
-                            {/* 頂部導航欄 (返回按鈕 + 標題) */}
+                        <div className="flex-1 flex flex-col p-6 pt-8 z-30 animate-in fade-in slide-in-from-bottom-5 duration-300">
                             <div className="flex items-center gap-4 mb-6">
-                                <button 
-                                    onClick={() => setMode('menu')} 
-                                    className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors"
-                                >
-                                    <Icon name="arrow-left" size={24} />
-                                </button>
+                                <button onClick={() => setMode('menu')} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors"><Icon name="arrow-left" size={24} /></button>
                                 <h2 className="text-2xl font-bold text-white tracking-tight">文字翻譯</h2>
                             </div>
 
-                            {/* 語言選擇器 */}
                             <div className="flex justify-between items-center mb-6 bg-white/5 p-1 rounded-full border border-white/10">
-                                <div className={`flex-1 text-center py-2 rounded-full transition-all ${sourceLang === 'th' ? 'text-thai-tea font-bold' : 'text-white/60'}`}>
-                                    {sourceLang === 'th' ? '泰文 (TH)' : '中文 (ZH)'}
-                                </div>
-                                <button onClick={handleLanguageSwitch} className="p-2 bg-thai-tea rounded-full text-tech-black shadow-neon mx-2 hover:rotate-180 transition-transform duration-300">
-                                    <Icon name="arrow-left-right" size={18} />
-                                </button>
-                                <div className={`flex-1 text-center py-2 rounded-full transition-all ${sourceLang === 'zh' ? 'text-thai-tea font-bold' : 'text-white/60'}`}>
-                                    {sourceLang === 'zh' ? '泰文 (TH)' : '中文 (ZH)'}
-                                </div>
+                                <div className={`flex-1 text-center py-2 rounded-full transition-all ${sourceLang === 'th' ? 'text-thai-tea font-bold' : 'text-white/60'}`}>{sourceLang === 'th' ? '泰文 (TH)' : '中文 (ZH)'}</div>
+                                <button onClick={handleLanguageSwitch} className="p-2 bg-thai-tea rounded-full text-tech-black shadow-neon mx-2 hover:rotate-180 transition-transform duration-300"><Icon name="arrow-left-right" size={18} /></button>
+                                <div className={`flex-1 text-center py-2 rounded-full transition-all ${sourceLang === 'zh' ? 'text-thai-tea font-bold' : 'text-white/60'}`}>{sourceLang === 'zh' ? '泰文 (TH)' : '中文 (ZH)'}</div>
                             </div>
-
-                            {/* 輸入框 (上) */}
+                            
+                            {/* 輸入框 */}
                             <div className="flex-1 flex flex-col gap-2 min-h-0 mb-4">
                                 <label className="text-xs text-thai-tea/80 ml-2 font-bold">輸入原文</label>
                                 <div className="relative flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 focus-within:border-thai-tea/50 transition-colors flex flex-col">
-                                    <textarea 
-                                        className="w-full h-full bg-transparent resize-none outline-none text-lg placeholder-white/20"
-                                        placeholder={sourceLang === 'th' ? "請輸入泰文..." : "請輸入中文..."}
-                                        value={inputText}
-                                        onChange={(e) => setInputText(e.target.value)}
-                                    ></textarea>
+                                    <textarea className="w-full h-full bg-transparent resize-none outline-none text-lg placeholder-white/20" placeholder={sourceLang === 'th' ? "請輸入泰文..." : "請輸入中文..."} value={inputText} onChange={(e) => setInputText(e.target.value)}></textarea>
                                     <div className="flex justify-end items-center gap-2 mt-2">
-                                        {/* 只有當原文是泰文時顯示發音按鈕 */}
-                                        {sourceLang === 'th' && inputText && (
-                                            <button onClick={() => playThaiAudio(inputText)} className="p-2 text-thai-tea hover:bg-white/10 rounded-lg transition-colors">
-                                                <Icon name="volume-2" size={20} />
-                                            </button>
-                                        )}
-                                        {inputText && (
-                                            <button onClick={() => setInputText('')} className="p-2 text-white/40 hover:text-white rounded-lg">
-                                                <Icon name="x" size={20} />
-                                            </button>
-                                        )}
+                                        {sourceLang === 'th' && inputText && <button onClick={() => playThaiAudio(inputText)} className="p-2 text-thai-tea hover:bg-white/10 rounded-lg transition-colors"><Icon name="volume-2" size={20} /></button>}
+                                        {inputText && <button onClick={() => setInputText('')} className="p-2 text-white/40 hover:text-white rounded-lg"><Icon name="x" size={20} /></button>}
                                     </div>
                                 </div>
                             </div>
-
-                            {/* 翻譯按鈕 (中) */}
+                            
+                            {/* 翻譯按鈕 */}
                             <div className="flex justify-center mb-4">
-                                <button 
-                                    onClick={handleTextTranslate}
-                                    disabled={isScanning || !inputText}
-                                    className={`px-8 py-3 rounded-full font-bold text-lg flex items-center gap-2 shadow-lg transition-all ${isScanning ? 'bg-white/10 text-white/30' : 'bg-thai-tea text-tech-black hover:scale-105 shadow-neon'}`}
-                                >
+                                <button onClick={handleTextTranslate} disabled={isScanning || !inputText} className={`px-8 py-3 rounded-full font-bold text-lg flex items-center gap-2 shadow-lg transition-all ${isScanning ? 'bg-white/10 text-white/30' : 'bg-thai-tea text-tech-black hover:scale-105 shadow-neon'}`}>
                                     {isScanning ? <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div> : <Icon name="languages" size={20} />}
                                     {isScanning ? '翻譯中...' : '開始翻譯'}
                                 </button>
                             </div>
 
-                            {/* 結果框 (下) */}
-                            <div className="flex-1 flex flex-col gap-2 min-h-0 mb-4">
+                            {/* 結果框 - 使用 absolute inset-0 技術修正捲動 */}
+                            <div className="flex-1 flex flex-col gap-2 min-h-0 mb-4 relative">
                                 <label className="text-xs text-white/60 ml-2 font-bold">翻譯結果</label>
-                                <div className="relative flex-1 bg-tech-dark/50 border border-white/10 rounded-2xl p-4 flex flex-col">
-                                    <div className="flex-1 overflow-y-auto text-xl font-medium text-white/90">
-                                        {outputText || <span className="text-white/20 italic">等待翻譯...</span>}
-                                        
-                                        {/* 如果結果是泰文 (中翻泰)，顯示拼音 */}
-                                        {sourceLang === 'zh' && menuItems[0]?.roman && (
-                                            <div className="mt-3 pt-3 border-t border-white/5 text-sm text-thai-tea/80 font-mono">
-                                                {menuItems[0].roman}
-                                            </div>
-                                        )}
+                                <div className="relative flex-1 bg-tech-dark/50 border border-white/10 rounded-2xl flex flex-col overflow-hidden">
+                                    <div className="absolute inset-0 p-4 overflow-y-auto no-scrollbar">
+                                        <div className="text-xl font-medium text-white/90 whitespace-pre-wrap min-h-[50px]">
+                                            {outputText || <span className="text-white/20 italic">等待翻譯...</span>}
+                                        </div>
+                                        {sourceLang === 'zh' && menuItems[0]?.roman && <div className="mt-3 pt-3 border-t border-white/5 text-sm text-thai-tea/80 font-mono">{menuItems[0].roman}</div>}
                                     </div>
                                     
-                                    <div className="flex justify-end items-center gap-2 mt-2 border-t border-white/5 pt-2">
-                                        {/* 如果結果是泰文，顯示發音按鈕 */}
-                                        {sourceLang === 'zh' && outputText && (
-                                            <button onClick={() => playThaiAudio(outputText)} className="p-2 text-thai-tea hover:bg-white/10 rounded-lg transition-colors">
-                                                <Icon name="volume-2" size={20} />
-                                            </button>
-                                        )}
-                                        {outputText && (
-                                            <button onClick={() => copyText(outputText)} className="p-2 text-white/60 hover:text-white rounded-lg">
-                                                <Icon name="copy" size={20} />
-                                            </button>
-                                        )}
+                                    {/* 底部工具列固定在卡片下方 */}
+                                    <div className="absolute bottom-0 left-0 w-full p-2 flex justify-end items-center gap-2 bg-gradient-to-t from-tech-dark/90 to-transparent pointer-events-auto">
+                                        {sourceLang === 'zh' && outputText && <button onClick={() => playThaiAudio(outputText)} className="p-2 text-thai-tea hover:bg-white/10 rounded-lg transition-colors"><Icon name="volume-2" size={20} /></button>}
+                                        {outputText && <button onClick={() => copyText(outputText)} className="p-2 text-white/60 hover:text-white rounded-lg"><Icon name="copy" size={20} /></button>}
                                     </div>
                                 </div>
                             </div>
