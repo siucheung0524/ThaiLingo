@@ -82,9 +82,8 @@ export default async function handler(req, res) {
           
           任務：
           1. 翻譯成繁體中文。
-          2. 提供羅馬拼音。
-          3. 判斷是否含甲殼類 (containsShellfish)。
-          4. 輸出 JSON。
+          2. 判斷是否含甲殼類 (containsShellfish)。
+          3. 輸出 JSON。
           
           JSON 結構：
           {
@@ -92,7 +91,6 @@ export default async function handler(req, res) {
               {
                 "id": 1,
                 "thai": "${text}",
-                "roman": "拼音",
                 "zh": "翻譯結果",
                 "containsShellfish": false,
                 "category": "來源: Google Gemini"
