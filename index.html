@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
 <link rel="manifest" href="/site.webmanifest">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ThaiLingo 泰譯通</title>
+
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -169,6 +170,7 @@
 
         // --- 本地泰文羅馬拼音轉換邏輯 (輕量版) ---
         const thaiMapping = {
+            // 子音 (簡化版，不區分字首字尾變化，取最常用音)
             'ก': 'k', 'ข': 'kh', 'ฃ': 'kh', 'ค': 'kh', 'ฅ': 'kh', 'ฆ': 'kh', 'ง': 'ng',
             'จ': 'ch', 'ฉ': 'ch', 'ช': 'ch', 'ซ': 's', 'ฌ': 'ch', 'ญ': 'y', 'ฎ': 'd',
             'ฏ': 't', 'ฐ': 'th', 'ฑ': 'th', 'ฒ': 'th', 'ณ': 'n', 'ด': 'd', 'ต': 't',
@@ -176,6 +178,7 @@
             'ฝ': 'f', 'พ': 'ph', 'ฟ': 'f', 'ภ': 'ph', 'ม': 'm', 'ย': 'y', 'ร': 'r',
             'ฤ': 'ru', 'ล': 'l', 'ฦ': 'lu', 'ว': 'w', 'ศ': 's', 'ษ': 's', 'ส': 's',
             'ห': 'h', 'ฬ': 'l', 'อ': 'o', 'ฮ': 'h',
+            // 母音 (部分)
             'ะ': 'a', 'ั': 'a', 'า': 'a', 'ำ': 'am', 'ิ': 'i', 'ี': 'i', 'ึ': 'ue', 'ื': 'ue',
             'ุ': 'u', 'ู': 'u', 'เ': 'e', 'แ': 'ae', 'โ': 'o', 'ใ': 'ai', 'ไ': 'ai', 'ๅ': 'a'
         };
@@ -184,25 +187,36 @@
             if (!text) return "";
             let result = "";
             let i = 0;
+            
+            // 泰文的前置母音列表 (這些母音寫在子音前面，但讀音在子音後面)
             const leadingVowels = ['เ', 'แ', 'โ', 'ใ', 'ไ'];
+
             while (i < text.length) {
                 const char = text[i];
+                
+                // 處理前置母音邏輯
                 if (leadingVowels.includes(char)) {
+                    // 如果遇到前置母音，先暫存，往後找下一個子音
                     const vowelSound = thaiMapping[char] || char;
                     if (i + 1 < text.length) {
                         const nextChar = text[i+1];
                         const consonantSound = thaiMapping[nextChar] || nextChar;
+                        // 輸出順序：子音 + 母音
                         result += consonantSound + vowelSound;
-                        i += 2;
+                        i += 2; // 跳過這兩個字
                         continue;
                     }
                 }
+
+                // 一般對照
                 result += thaiMapping[char] || char;
                 i++;
             }
+            // 簡單清理非英文字元 (標點符號等保留)
             return result.replace(/undefined/g, ''); 
         };
 
+        // Mock Data: 移除手動寫死的 roman，改為測試時動態生成或保留作為參考
         const MOCK_GEMINI_RESPONSE = [
             { id: 1, thai: "ต้มยำกุ้งน้ำข้น", roman: "Tom Yum Kung Nam Khon", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, containsShellfish: true, tags: ["推薦", "熱門"] },
             { id: 2, thai: "ผัดไทยกุ้งสด", roman: "Pad Thai Kung Sod", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, containsShellfish: true, tags: ["不辣"] },
@@ -214,6 +228,7 @@
             { id: 8, thai: "ลาบหมู", roman: "Larb Moo", zh: "泰北涼拌豬肉", price: "90", desc: "香料味重，口感豐富", isSpicy: true, containsShellfish: false, tags: [] },
         ];
 
+        // 新增：通用模式的 Mock Data
         const MOCK_GENERAL_RESPONSE = [
             { id: 1, thai: "ทางออก", roman: "Thang Ok", zh: "出口 (Exit)", category: "標示" },
             { id: 2, thai: "ห้องน้ำไปทางขวา", roman: "Hong Nam Pai Thang Khwa", zh: "洗手間往右邊走", category: "指示" },
@@ -262,6 +277,8 @@
             const [playingId, setPlayingId] = useState(null);
             const [showTextInput, setShowTextInput] = useState(false);
             const [inputText, setInputText] = useState("");
+            
+            // 新增：複製狀態 (儲存剛複製過的項目 ID)
             const [copiedId, setCopiedId] = useState(null);
 
             useEffect(() => {
@@ -282,18 +299,30 @@
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
                     if (videoRef.current) {
                         videoRef.current.srcObject = stream;
+                        
                         const track = stream.getVideoTracks()[0];
                         const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                        
+                        // 檢查變焦
                         if (capabilities.zoom) {
                             setIsHardwareZoom(true);
-                            setZoomRange({ min: capabilities.zoom.min, max: capabilities.zoom.max, step: capabilities.zoom.step });
+                            setZoomRange({
+                                min: capabilities.zoom.min,
+                                max: capabilities.zoom.max,
+                                step: capabilities.zoom.step
+                            });
                             const settings = track.getSettings();
                             if (settings.zoom) setZoom(settings.zoom);
                         } else {
                             setIsHardwareZoom(false);
                             setZoomRange({ min: 1, max: 3, step: 0.1 });
                         }
-                        if (capabilities.torch) setSupportsFlash(true);
+
+                        // 檢查閃光燈 (Torch)
+                        if (capabilities.torch) {
+                            setSupportsFlash(true);
+                        }
+
                         videoRef.current.onloadedmetadata = () => {
                             videoRef.current.play();
                             setIsCameraReady(true);
@@ -309,7 +338,9 @@
             const stopCamera = () => {
                 if (videoRef.current && videoRef.current.srcObject) {
                     const tracks = videoRef.current.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
+                    tracks.forEach(track => {
+                        track.stop();
+                    });
                 }
             };
 
@@ -318,7 +349,9 @@
                     const track = videoRef.current.srcObject.getVideoTracks()[0];
                     try {
                         const newStatus = !isFlashlightOn;
-                        await track.applyConstraints({ advanced: [{ torch: newStatus }] });
+                        await track.applyConstraints({
+                            advanced: [{ torch: newStatus }]
+                        });
                         setIsFlashlightOn(newStatus);
                     } catch (err) {
                         console.error("Flashlight toggle failed:", err);
@@ -332,13 +365,19 @@
                 if (isHardwareZoom && videoRef.current && videoRef.current.srcObject) {
                     const track = videoRef.current.srcObject.getVideoTracks()[0];
                     if (track) {
-                        try { track.applyConstraints({ advanced: [{ zoom: newZoom }] }); } catch (err) {}
+                        try {
+                            track.applyConstraints({ advanced: [{ zoom: newZoom }] });
+                        } catch (err) {
+                            console.error("Zoom failed:", err);
+                        }
                     }
                 }
             };
 
             const handleUploadClick = () => {
-                if (fileInputRef.current) fileInputRef.current.click();
+                if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                }
             };
 
             const handleFileChange = (e) => {
@@ -360,7 +399,8 @@
                 if (!inputText.trim()) return;
                 setShowTextInput(false);
                 startProcessing('正在翻譯文字...');
-                setMode('general');
+                // 強制切換到 'general' 模式以便更好地顯示長句
+                setMode('general'); 
                 setLayoutMode('result');
                 await callBackendApi({ text: inputText });
                 finishProcessing();
@@ -456,17 +496,19 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
                         });
-                        
+
+                        // 如果後端失敗
                         if (!response.ok) {
                             if (response.status === 404) {
                                 throw new Error("API_NOT_FOUND");
                             }
                             const errorData = await response.json().catch(() => ({}));
                             const errorMessage = errorData.details || errorData.error || `HTTP ${response.status}`;
+                            
                             alert(`伺服器連線錯誤：\n${errorMessage}\n\n請檢查 Vercel 專案設定中的 GEMINI_API_KEY。`);
                             setProcessingStage('');
                             setIsScanning(false);
-                            return;
+                            return; 
                         }
 
                         const data = await response.json();
@@ -495,7 +537,7 @@
                         const newHistoryItem = {
                             id: Date.now(),
                             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            image: image || null,
+                            image: image || null, // 可能是純文字，無圖片
                             text: text || null,
                             items: itemsWithRoman,
                             mode: mode
@@ -504,6 +546,7 @@
                     }
                 } catch (error) {
                     console.error("Analysis Critical Failure:", error);
+                    // 如果不是前面 alert 過的錯誤，才顯示 alert
                     if (processingStage) {
                          alert(`系統錯誤：${error.message}`);
                     }
@@ -537,6 +580,7 @@
                 window.speechSynthesis.speak(utterance);
             };
 
+            // 複製功能函數
             const copyToClipboard = (item, e) => {
                 e.stopPropagation(); 
                 
@@ -858,11 +902,13 @@
                                                                 </div>
                                                                 <div className="flex gap-2 flex-wrap">
                                                                     {item.desc && <span className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-white/70">{item.desc}</span>}
+                                                                    
                                                                     {item.containsShellfish && (
                                                                         <span className="text-[10px] bg-yellow-500/20 px-2 py-1 rounded-md text-yellow-400 flex items-center gap-1 border border-yellow-500/20 font-bold">
                                                                             <Icon name="alert-triangle" size={10} /> 甲殼類
                                                                         </span>
                                                                     )}
+
                                                                     {item.isSpicy && <span className="text-[10px] bg-red-500/20 px-2 py-1 rounded-md text-red-400 flex items-center gap-1 border border-red-500/20"><Icon name="flame" size={10} /> 辣</span>}
                                                                     {item.tags && item.tags.map(tag => (<span key={tag} className="text-[10px] bg-thai-tea/10 px-2 py-1 rounded-md text-thai-tea border border-thai-tea/20">{tag}</span>))}
                                                                 </div>
@@ -882,15 +928,13 @@
                                                             className={`menu-item glass-card rounded-2xl p-4 flex flex-col gap-2 group transition-all cursor-pointer border ${playingId === item.id ? 'border-thai-tea bg-thai-tea/10 shadow-neon' : 'border-white/5 hover:bg-white/5 hover:border-white/20'}`} 
                                                             style={{ animationDelay: `${index * 0.1}s` }}
                                                         >
-                                                            <div className="flex justify-between items-center mb-1">
-                                                                {item.category && (
-                                                                    <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/60">{item.category}</span>
-                                                                )}
-                                                            </div>
-                                                            
+                                                            {item.category && (
+                                                                <span className="self-start text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/60 mb-1">{item.category}</span>
+                                                            )}
                                                             <div className="flex justify-between items-start relative">
                                                                 <h4 className="font-bold text-white text-lg leading-snug">{item.zh}</h4>
                                                                 <Icon name="volume-2" size={18} className={`transition-colors mt-1 shrink-0 ${playingId === item.id ? 'text-thai-tea animate-pulse' : 'text-white/30 group-hover:text-white/70'}`} />
+                                                                
                                                             </div>
                                                             <div className="border-t border-white/5 pt-2 mt-1 relative">
                                                                 <p className="text-sm thai-font text-white/80">{item.thai}</p>
