@@ -55,12 +55,14 @@
             font-family: 'Noto Sans Thai', sans-serif;
         }
 
+        /* 科技感網格背景 */
         .tech-grid {
             background-size: 40px 40px;
             background-image: linear-gradient(to right, rgba(255, 158, 64, 0.03) 1px, transparent 1px),
                               linear-gradient(to bottom, rgba(255, 158, 64, 0.03) 1px, transparent 1px);
         }
 
+        /* 掃描線動畫 */
         .scan-line {
             position: absolute;
             width: 100%;
@@ -87,6 +89,7 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+        /* 卡片進場動畫 */
         .menu-item {
             animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             opacity: 0;
@@ -96,6 +99,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* 玻璃擬態 */
         .glass-panel {
             background: rgba(18, 11, 8, 0.85);
             backdrop-filter: blur(20px);
@@ -109,6 +113,7 @@
             backdrop-filter: blur(10px);
         }
 
+        /* Range Slider */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -138,6 +143,21 @@
         
         input[type=range]:focus {
             outline: none;
+        }
+        
+        /* 點擊波紋效果 */
+        @keyframes ripple {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .ripple-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 158, 64, 0.4);
+            width: 100px;
+            height: 100px;
+            pointer-events: none;
+            animation: ripple 0.6s linear;
         }
     </style>
 </head>
@@ -185,11 +205,18 @@
         const MOCK_GEMINI_RESPONSE = [
             { id: 1, thai: "ต้มยำกุ้งน้ำข้น", roman: "Tom Yum Kung Nam Khon", zh: "冬陰功湯 (濃湯版)", price: "250", desc: "酸辣蝦湯，加椰奶", isSpicy: true, containsShellfish: true, tags: ["推薦", "熱門"], category: "演示資料" },
             { id: 2, thai: "ผัดไทยกุ้งสด", roman: "Pad Thai Kung Sod", zh: "鮮蝦泰式炒河粉", price: "120", desc: "經典街頭美食", isSpicy: false, containsShellfish: true, tags: ["不辣"], category: "演示資料" },
+            { id: 3, thai: "ส้มตำไทย", roman: "Som Tum Thai", zh: "泰式青木瓜沙拉", price: "80", desc: "清爽開胃，含花生", isSpicy: true, containsShellfish: true, tags: [] }, // 通常含蝦米
+            { id: 4, thai: "ข้าวผัดปู", roman: "Khao Pad Pu", zh: "蟹肉炒飯", price: "150", desc: "大火快炒，鍋氣十足", isSpicy: false, containsShellfish: true, tags: [] },
+            { id: 5, thai: "ปลากะพงทอดน้ำปลา", roman: "Pla Kapong Tod Nam Pla", zh: "炸鱸魚佐魚露", price: "450", desc: "整條鱸魚酥炸", isSpicy: false, containsShellfish: false, tags: ["大份"] },
+            { id: 6, thai: "น้ำแตงโมปั่น", roman: "Nam Tangmo Pan", zh: "西瓜冰沙", price: "60", desc: "解辣神器", isSpicy: false, containsShellfish: false, tags: [] },
+            { id: 7, thai: "คอหมูย่าง", roman: "Kor Moo Yang", zh: "炭烤豬頸肉", price: "120", desc: "外焦裡嫩，配特製醬", isSpicy: false, containsShellfish: false, tags: ["必點"] },
+            { id: 8, thai: "ลาบหมู", roman: "Larb Moo", zh: "泰北涼拌豬肉", price: "90", desc: "香料味重，口感豐富", isSpicy: true, containsShellfish: false, tags: [] },
         ];
 
         const MOCK_GENERAL_RESPONSE = [
             { id: 1, thai: "ทางออก", roman: "Thang Ok", zh: "出口 (Exit)", category: "演示資料" },
             { id: 2, thai: "ห้องน้ำไปทางขวา", roman: "Hong Nam Pai Thang Khwa", zh: "洗手間往右邊走", category: "演示資料" },
+            { id: 3, thai: "ระวังพื้นลื่น", roman: "Rawang Phuen Luen", zh: "小心地滑 (Caution Wet Floor)", category: "演示資料" }
         ];
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -239,10 +266,17 @@
             const [sourceLang, setSourceLang] = useState('th'); // 'th' or 'zh'
             const [copiedId, setCopiedId] = useState(null);
 
+            // 判斷是否為文字模式的輔助變數，用於 useEffect 依賴
+            const isTextMode = mode === 'text';
+
             useEffect(() => {
-                startCamera();
+                // 如果不是文字模式，啟動相機
+                if (!isTextMode) {
+                    startCamera();
+                }
+                // 當組件卸載或切換到文字模式時，停止相機
                 return () => stopCamera();
-            }, []);
+            }, [isTextMode]); // 依賴 isTextMode，確保切換模式時觸發
 
             const startCamera = async () => {
                 try {
@@ -540,6 +574,7 @@
                                 <label className="text-xs text-white/60 ml-2 font-bold">翻譯結果</label>
                                 <div className="relative flex-1 bg-tech-dark/50 border border-white/10 rounded-2xl flex flex-col overflow-hidden">
                                     <div className="absolute inset-0 p-4 overflow-y-auto no-scrollbar">
+                                        {sourceLang === 'zh' && menuItems[0]?.category && <div className="mb-2 text-[10px] bg-white/10 px-2 py-0.5 rounded w-fit text-white/60">{menuItems[0].category}</div>}
                                         <div className="text-xl font-medium text-white/90 whitespace-pre-wrap min-h-[50px]">
                                             {outputText || <span className="text-white/20 italic">等待翻譯...</span>}
                                         </div>
@@ -617,7 +652,6 @@
                                                     </div>
                                                 ) : (
                                                     <div key={item.id} onClick={() => playThaiAudio(item.thai)} className="menu-item glass-card rounded-2xl p-4 border border-white/5">
-                                                        {item.category && <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/60">{item.category}</span>}
                                                         <h4 className="font-bold text-white text-lg mt-1">{item.zh}</h4>
                                                         <p className="text-sm text-white/50 mt-1">{item.thai}</p>
                                                         <p className="text-xs text-thai-tea/80 mt-1">{item.roman}</p>
