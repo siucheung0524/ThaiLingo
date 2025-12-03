@@ -28,7 +28,8 @@ export default async function handler(req, res) {
 
     // --- 分支 A: 純文字輸入 (優先嘗試 NLLB-200) ---
     if (text) {
-        const hfApiKey = process.env.HF_API_KEY;
+        // 去除空格，避免因複製貼上導致的 key 錯誤
+        const hfApiKey = process.env.HF_API_KEY ? process.env.HF_API_KEY.trim() : null;
 
         if (hfApiKey) {
             try {
@@ -49,9 +50,11 @@ export default async function handler(req, res) {
                 };
                 return res.status(200).json(responseData);
             } catch (hfError) {
-                console.warn("NLLB Failed, falling back to Gemini:", hfError.message);
+                console.warn("NLLB Failed after retries, falling back to Gemini. Reason:", hfError.message);
                 // 失敗後自動往下執行 Gemini 邏輯
             }
+        } else {
+            console.log("HF_API_KEY not found or empty.");
         }
     }
 
@@ -82,8 +85,8 @@ export default async function handler(req, res) {
           
           任務：
           1. 翻譯成繁體中文。
-          2. 判斷是否含甲殼類 (containsShellfish)。
-          3. 輸出 JSON。
+          3. 判斷是否含甲殼類 (containsShellfish)。
+          4. 輸出 JSON。
           
           JSON 結構：
           {
@@ -125,7 +128,6 @@ export default async function handler(req, res) {
           }
         `;
         
-        // 如果是 General 模式，簡化 Prompt
         if (mode === 'general') {
              prompt = `識別圖片中的泰文，翻譯成繁體中文。輸出 JSON: {"items": [{"id": 1, "thai": "...", "zh": "...", "desc": "...", "price": "", "isSpicy": false, "containsShellfish": false, "category": "AI 視覺分析", "tags": []}]}`;
         }
@@ -168,12 +170,13 @@ export default async function handler(req, res) {
   }
 }
 
-// --- 輔助函數：呼叫 Hugging Face NLLB-200 ---
+// --- 輔助函數：呼叫 Hugging Face NLLB-200 (含重試機制) ---
 async function translateWithNLLB(text, apiKey) {
-    // facebook/nllb-200-distilled-600M 是一個輕量且效果好的多語言翻譯模型
-    const response = await fetch(
-        "[https://api-inference.huggingface.co/models/facebook/nllb-200-distilled-600M](https://api-inference.huggingface.co/models/facebook/nllb-200-distilled-600M)",
-        {
+    const url = "[https://api-inference.huggingface.co/models/facebook/nllb-200-distilled-600M](https://api-inference.huggingface.co/models/facebook/nllb-200-distilled-600M)";
+    
+    // 最多重試 3 次
+    for (let i = 0; i < 3; i++) {
+        const response = await fetch(url, {
             headers: {
                 Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
@@ -182,24 +185,33 @@ async function translateWithNLLB(text, apiKey) {
             body: JSON.stringify({
                 inputs: text,
                 parameters: {
-                    src_lang: "tha_Thai", // NLLB 泰文代碼
-                    tgt_lang: "zho_Hant"  // NLLB 繁體中文代碼
+                    src_lang: "tha_Thai",
+                    tgt_lang: "zho_Hant"
                 }
             }),
+        });
+
+        // 處理模型載入中 (503) 的情況
+        if (response.status === 503) {
+            const errorData = await response.json();
+            const waitTime = errorData.estimated_time || 5.0; // 預設等待 5 秒
+            console.log(`NLLB Model loading, waiting ${waitTime}s... (Attempt ${i + 1}/3)`);
+            
+            // 等待指定時間
+            await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+            continue; // 重試迴圈
         }
-    );
 
-    if (!response.ok) {
-        throw new Error(`HF API Error: ${response.status} ${response.statusText}`);
-    }
+        if (!response.ok) {
+             const errText = await response.text();
+             throw new Error(`HF API Error ${response.status}: ${errText}`);
+        }
 
-    const result = await response.json();
-    // HF 回傳格式通常是陣列
-    if (Array.isArray(result) && result[0]?.translation_text) {
-        return result[0].translation_text;
-    } else if (result.error) {
-        throw new Error(result.error);
-    } else {
+        const result = await response.json();
+        if (Array.isArray(result) && result[0]?.translation_text) {
+            return result[0].translation_text;
+        }
         throw new Error("Unexpected HF response format");
     }
+    throw new Error("NLLB Model unavailable after retries");
 }
