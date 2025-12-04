@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
 <link rel="manifest" href="/site.webmanifest">
@@ -276,12 +276,6 @@
 
             const startCamera = async () => {
                 try {
-                    // 先停止現有的串流，避免多重開啟導致錯誤
-                    if (videoRef.current && videoRef.current.srcObject) {
-                        const tracks = videoRef.current.srcObject.getTracks();
-                        tracks.forEach(track => track.stop());
-                    }
-
                     const constraints = { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, zoom: true } };
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
                     if (videoRef.current) {
@@ -371,8 +365,6 @@
 
             const startProcessing = (msg) => { setIsScanning(true); setMenuItems([]); setProcessingStage(msg); setIsDemoMode(false); setLayoutMode('result'); };
             const finishProcessing = () => { setIsScanning(false); setProcessingStage(''); };
-            
-            // 重置功能 - 包含相機重啟邏輯
             const handleReset = () => {
                 setCapturedImage(null);
                 setMenuItems([]);
@@ -386,21 +378,11 @@
                 setIsHistorySelectMode(false); 
                 setSelectedHistoryIds(new Set());
                 
-                // 關鍵修復：檢查並重啟相機
                 const video = videoRef.current;
                 if (video) {
-                    // 檢查串流是否活躍
                     const stream = video.srcObject;
                     const isLive = stream && stream.getVideoTracks().some(t => t.readyState === 'live');
-                    
-                    if (!isLive) {
-                        // 如果相機已停止，重新啟動
-                        console.log("Camera inactive, restarting...");
-                        startCamera();
-                    } else {
-                        // 如果相機還在，確保它在播放
-                        video.play().catch(e => console.log("Resume video error:", e));
-                    }
+                    if (!isLive) startCamera(); else video.play().catch(e => console.log("Resume video error:", e));
                 } else {
                     startCamera();
                 }
@@ -471,8 +453,9 @@
                         }
                     }
                     
-                    const itemsWithRoman = items.map(item => ({
+                    const itemsWithRoman = items.map((item, index) => ({
                         ...item,
+                        id: item.id ? `${Date.now()}-${index}-${item.id}` : `${Date.now()}-${index}`,
                         roman: item.roman || generateRomanization(item.thai)
                     }));
 
@@ -508,7 +491,6 @@
                     toggleHistoryItemSelection(item.id);
                     return;
                 }
-
                 setCapturedImage(item.image);
                 if(item.mode === 'text') {
                     setMode('text');
@@ -619,6 +601,8 @@
                 if (selectedRecords.length === 0) return;
                 let mergedItems = [];
                 selectedRecords.forEach(record => { mergedItems = mergedItems.concat(record.items); });
+                setOrderCart({});
+                setSelectedCustomizations(new Set());
                 setMenuItems(mergedItems);
                 setShowHistory(false);
                 setShowOrderAssistant(true);
@@ -628,12 +612,14 @@
                 setCapturedImage(null); 
             };
 
+            // OrderButton 組件：絕對定位，懸浮在結果列表的右上角 (top-10 right-6)
+            // 同時我們也希望它不要與「標題」重疊，標題位於左側。
             const OrderButton = () => {
                 if (mode !== 'menu' || menuItems.length === 0) return null;
                 return (
                     <button 
                         onClick={() => setShowOrderAssistant(true)}
-                        className="mt-3 px-5 py-2 rounded-full bg-thai-tea text-tech-black shadow-neon hover:scale-105 transition-transform flex items-center gap-2 font-bold text-sm"
+                        className="absolute top-10 right-6 z-50 px-4 py-2 rounded-full bg-thai-tea text-tech-black shadow-neon hover:scale-105 transition-transform flex items-center gap-2 font-bold text-sm"
                     >
                         <Icon name="shopping-bag" size={18} /> 
                         點餐助手
@@ -811,7 +797,6 @@
                                     </button>
                                  </div>
                                  <div className="flex-1 glass-panel rounded-[32px] overflow-hidden flex flex-col shadow-2xl relative">
-                                     {/* Header Area with Order Button - 改進版 */}
                                      <div className="pt-12 px-6 pb-4 flex flex-col gap-3 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent flex-shrink-0">
                                         <div className="flex justify-between items-end">
                                             <div>
@@ -824,10 +809,10 @@
                                                 {menuItems.length > 0 && <span className={`w-2 h-2 rounded-full animate-pulse ${isDemoMode ? 'bg-yellow-500' : 'bg-thai-tea'}`}></span>}
                                             </div>
                                         </div>
-                                        
-                                        {/* 點餐助手按鈕 - 嵌入 Header */}
-                                        <OrderButton />
                                      </div>
+
+                                     {/* 點餐助手按鈕 - 位於結果列表的右上角 */}
+                                     <OrderButton />
 
                                     <div className="flex-1 relative min-h-0">
                                          <div className="absolute inset-0 overflow-y-auto no-scrollbar p-5 space-y-3">
@@ -877,7 +862,6 @@
                                         <p className="text-xs text-white/40 mt-1">開啟期間的翻譯結果</p>
                                     </div>
                                 </div>
-                                {/* 歷史紀錄右上角新增多選按鈕 - 改為帶文字的按鈕 */}
                                 <button 
                                     onClick={toggleHistorySelectionMode} 
                                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1.5 ${isHistorySelectMode ? 'bg-thai-tea text-tech-black' : 'text-thai-tea bg-white/10 hover:bg-white/20'}`}
@@ -907,7 +891,6 @@
                                             <div className="w-16 h-16 bg-white/10 rounded-lg flex items-center justify-center shrink-0 relative overflow-hidden">
                                                 {rec.mode === 'text' ? <Icon name="type" className="text-white/30"/> : <img src={rec.image} className="w-full h-full object-cover"/>}
                                                 
-                                                {/* 多選勾勾 */}
                                                 {isHistorySelectMode && rec.mode === 'menu' && (
                                                     <div className={`absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity ${selectedHistoryIds.has(rec.id) ? 'opacity-100' : 'opacity-0 hover:opacity-50'}`}>
                                                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedHistoryIds.has(rec.id) ? 'bg-thai-tea border-thai-tea text-tech-black' : 'border-white'}`}>
@@ -930,7 +913,6 @@
                                 )}
                             </div>
 
-                            {/* 合併按鈕 (僅在多選模式且有選擇時顯示) */}
                             {isHistorySelectMode && selectedHistoryIds.size > 0 && (
                                 <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-tech-black via-tech-black to-transparent animate-in slide-in-from-bottom-10">
                                     <button 
