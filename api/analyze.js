@@ -76,7 +76,7 @@ export default async function handler(req, res) {
     
     // 定義主要模型與備用模型
     const PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
-    const FALLBACK_MODEL = "gemini-2.5-flash-lite-preview-09-2025"; // 1.5 Flash 通常比較穩定且額度較高
+    const FALLBACK_MODEL = "gemini-2.0-flash"; // 1.5 Flash 通常比較穩定且額度較高
 
     let prompt = "";
     let contentParts = [];
@@ -84,9 +84,9 @@ export default async function handler(req, res) {
     // 建構 Prompt (邏輯不變)
     if (text) {
         if (sourceLang === 'zh') {
-            prompt = `你是一個專業的中泰翻譯助手。請將以下【中文】文字翻譯成【泰文】。任務要求：1. 將中文翻譯成自然的泰文。2. 提供該泰文翻譯結果的羅馬拼音 (RTGS 系統)。3. 嚴格輸出純 JSON 格式。JSON 結構：{ "items": [ { "id": 1, "zh": "${text}", "thai": "泰文翻譯結果", "roman": "泰文羅馬拼音", "category": "中翻泰 (Gemini)" } ] }`;
+            prompt = `你是一個專業的中泰翻譯助手。請將以下【中文】文字翻譯成【泰文】。任務要求：1. 將中文翻譯成自然的泰文。2. 嚴格輸出純 JSON 格式。JSON 結構：{ "items": [ { "id": 1, "zh": "${text}", "thai": "泰文翻譯結果", "roman": "泰文羅馬拼音", "category": "中翻泰 (Gemini)" } ] }`;
         } else {
-            prompt = `你是一個專業的泰語翻譯助手。請翻譯使用者提供的【泰文】文字。任務要求：1. 翻譯成通順的繁體中文。2. 提供泰文原文的羅馬拼音。3. 分析是否含有「甲殼類海鮮」，若是請設定 containsShellfish: true。4. 嚴格輸出純 JSON 格式。JSON 結構：{ "items": [ { "id": 1, "thai": "${text}", "roman": "泰文羅馬拼音", "zh": "繁體中文翻譯", "containsShellfish": false, "category": "泰翻中 (Gemini)" } ] }`;
+            prompt = `你是一個專業的泰語翻譯助手。請翻譯使用者提供的【泰文】文字。任務要求：1. 翻譯成通順的繁體中文。2. 分析是否含有「甲殼類海鮮」，若是請設定 containsShellfish: true。4. 嚴格輸出純 JSON 格式。JSON 結構：{ "items": [ { "id": 1, "thai": "${text}", "roman": "泰文羅馬拼音", "zh": "繁體中文翻譯", "containsShellfish": false, "category": "泰翻中 (Gemini)" } ] }`;
         }
         contentParts = [{ text: prompt }];
     } else {
