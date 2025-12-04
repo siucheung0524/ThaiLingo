@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
 <link rel="manifest" href="/site.webmanifest">
@@ -276,6 +276,12 @@
 
             const startCamera = async () => {
                 try {
+                    // 先停止現有的串流，避免多重開啟導致錯誤
+                    if (videoRef.current && videoRef.current.srcObject) {
+                        const tracks = videoRef.current.srcObject.getTracks();
+                        tracks.forEach(track => track.stop());
+                    }
+
                     const constraints = { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, zoom: true } };
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
                     if (videoRef.current) {
@@ -365,6 +371,8 @@
 
             const startProcessing = (msg) => { setIsScanning(true); setMenuItems([]); setProcessingStage(msg); setIsDemoMode(false); setLayoutMode('result'); };
             const finishProcessing = () => { setIsScanning(false); setProcessingStage(''); };
+            
+            // 重置功能 - 包含相機重啟邏輯
             const handleReset = () => {
                 setCapturedImage(null);
                 setMenuItems([]);
@@ -375,9 +383,27 @@
                 setSelectedCustomizations(new Set());
                 setShowOrderAssistant(false);
                 setShowOrderSummary(false);
-                setIsHistorySelectMode(false); // 重置歷史選擇模式
+                setIsHistorySelectMode(false); 
                 setSelectedHistoryIds(new Set());
-                if (videoRef.current) videoRef.current.play().catch(e => {});
+                
+                // 關鍵修復：檢查並重啟相機
+                const video = videoRef.current;
+                if (video) {
+                    // 檢查串流是否活躍
+                    const stream = video.srcObject;
+                    const isLive = stream && stream.getVideoTracks().some(t => t.readyState === 'live');
+                    
+                    if (!isLive) {
+                        // 如果相機已停止，重新啟動
+                        console.log("Camera inactive, restarting...");
+                        startCamera();
+                    } else {
+                        // 如果相機還在，確保它在播放
+                        video.play().catch(e => console.log("Resume video error:", e));
+                    }
+                } else {
+                    startCamera();
+                }
             };
 
             const handleMainButton = () => {
@@ -477,9 +503,8 @@
             };
 
             const restoreHistoryItem = (item) => {
-                // 如果是多選模式，點擊列表項目變成切換選擇
                 if (isHistorySelectMode) {
-                    if (item.mode !== 'menu') return; // 只允許合併菜單
+                    if (item.mode !== 'menu') return; 
                     toggleHistoryItemSelection(item.id);
                     return;
                 }
@@ -608,7 +633,7 @@
                 return (
                     <button 
                         onClick={() => setShowOrderAssistant(true)}
-                        className="px-4 py-2 rounded-full bg-thai-tea text-tech-black shadow-neon hover:scale-105 transition-transform flex items-center gap-2 font-bold text-sm"
+                        className="mt-3 px-5 py-2 rounded-full bg-thai-tea text-tech-black shadow-neon hover:scale-105 transition-transform flex items-center gap-2 font-bold text-sm"
                     >
                         <Icon name="shopping-bag" size={18} /> 
                         點餐助手
